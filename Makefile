@@ -1,16 +1,21 @@
-CC=cc
+CC=gcc
+CFLAGS=-c -Wall -g
+LDLIBS=
 RPC_SYSTEM=rpc.o
+RPC_SYSTEM_A=rpc.a
 
-.PHONY: format all
+.PHONY: all format clean
 
-all: $(RPC_SYSTEM)
+all: $(RPC_SYSTEM) $(RPC_SYSTEM_A)
 
 $(RPC_SYSTEM): rpc.c rpc.h
-	$(CC) -c -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $< $(LDLIBS)
 
-# RPC_SYSTEM_A=rpc.a
-# $(RPC_SYSTEM_A): rpc.o
-# 	ar rcs $(RPC_SYSTEM_A) $(RPC_SYSTEM)
+$(RPC_SYSTEM_A): $(RPC_SYSTEM)
+	ar rcs $@ $<
 
 format:
 	clang-format -style=file -i *.c *.h
+
+clean:
+	rm -f $(RPC_SYSTEM) $(RPC_SYSTEM_A)
