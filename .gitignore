@@ -1,3 +1,5 @@
 .vscode
 *.o
 *.a
+rpc-server
+rpc-client
