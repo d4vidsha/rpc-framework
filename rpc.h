@@ -10,7 +10,7 @@ typedef struct rpc_server rpc_server;
 typedef struct rpc_client rpc_client;
 
 /* 
- * The payload for requests/responses
+ * The payload for requests/responses.
  */
 typedef struct {
     int data1;
@@ -19,13 +19,13 @@ typedef struct {
 } rpc_data;
 
 /* 
- * Handle for remote function
+ * Handle for remote function.
  */
 typedef struct rpc_handle rpc_handle;
 
 /* 
  * Handler for remote functions, which takes rpc_data* as input and produces
- * rpc_data* as output
+ * rpc_data* as output.
  */
 typedef rpc_data *(*rpc_handler)(rpc_data *);
 
