@@ -24,10 +24,10 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-/* 
+/*
  * Adds 2 signed 8 bit numbers. Uses data1 for left operand and
  * data2 for right operand.
- * 
+ *
  * @param in The request data
  * @return The response data
  * @note The caller is responsible for freeing the response data
