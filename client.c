@@ -1,3 +1,10 @@
+/* =============================================================================
+   client.c
+
+   Example client program for interacting with the RPC server.
+
+   Author: David Sha
+============================================================================= */
 #include "rpc.h"
 #include <assert.h>
 #include <stdio.h>
