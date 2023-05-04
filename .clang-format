@@ -2,4 +2,3 @@ BasedOnStyle: LLVM
 IndentWidth: 4
 AllowShortIfStatementsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: Empty
-SortIncludes: Never
