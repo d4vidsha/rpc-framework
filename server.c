@@ -24,8 +24,14 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-/* Adds 2 signed 8 bit numbers */
-/* Uses data1 for left operand, data2 for right operand */
+/* 
+ * Adds 2 signed 8 bit numbers. Uses data1 for left operand and
+ * data2 for right operand.
+ * 
+ * @param in The request data
+ * @return The response data
+ * @note The caller is responsible for freeing the response data
+ */
 rpc_data *add2_i8(rpc_data *in) {
     /* Check data2 */
     if (in->data2 == NULL || in->data2_len != 1) {
