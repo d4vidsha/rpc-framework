@@ -12,13 +12,13 @@
 #ifndef HASHTABLE_H
 #define HASHTABLE_H
 
-#include "linkedlist.h"
-
 /* structures =============================================================== */
-typedef struct item {
-    unsigned long key;
-    list_t *data;
-} item_t;
+typedef struct item item_t;
+struct item {
+    unsigned char *key;
+    void *data;
+    item_t *next;
+};
 
 typedef struct hashtable {
     item_t **table;
@@ -52,25 +52,26 @@ hashtable_t *hashtable_create(int size);
  * @param free_data The function to free the data of each item. NULL if no
  * freeing is required.
  */
-void hashtable_destroy(hashtable_t *hashtable, void (*free_data)(void *data));
+void hashtable_destroy(hashtable_t *hashtable, void (*free_data)(void *));
 
 /*
- * Insert an item to the hashtable.
+ * Insert an item to the hashtable. If the key already exists, the data will
+ * be inserted to the front of the linked list.
  * 
  * @param hashtable The hashtable to insert the item to.
  * @param key The key of the item.
  * @param data The data of the item.
  */
-void hashtable_insert(hashtable_t *hashtable, unsigned long key, void *data);
+void hashtable_insert(hashtable_t *hashtable, unsigned char *key, void *data);
 
 /*
- * Search for an item in the hashtable.
+ * Lookup an item in the hashtable by key.
  * 
  * @param hashtable The hashtable to search.
  * @param key The key of the item.
  * @return A pointer to the item, or NULL if not found.
  */
-item_t *hashtable_search(hashtable_t *hashtable, unsigned long key);
+void *hashtable_lookup(hashtable_t *hashtable, unsigned char *key);
 
 /*
  * Remove an item from the hashtable.
@@ -80,7 +81,7 @@ item_t *hashtable_search(hashtable_t *hashtable, unsigned long key);
  * @param free_data The function to free the data of the item. NULL if no
  * freeing is required.
  */
-void hashtable_remove(hashtable_t *hashtable, unsigned long key, void (*free_data)(void *));
+void hashtable_remove(hashtable_t *hashtable, unsigned char *key, void (*free_data)(void *));
 
 /*
  * Prints the hashtable.
@@ -88,6 +89,5 @@ void hashtable_remove(hashtable_t *hashtable, unsigned long key, void (*free_dat
  * @param hashtable The hashtable to print.
  */
 void hashtable_print(hashtable_t *hashtable, void (*print_data)(void *));
-
 
 #endif
