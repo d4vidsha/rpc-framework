@@ -5,8 +5,12 @@
 
    Reference:
    - Taken directly from David Sha's implementation in COMP30023 project 1
+   - Originally written for COMP20003 Assignment 2, 2022, altered to fit
+     this project.
    - Implementation of linked list structs inspired by Artem Polyvyanyy from
      ass2-soln-2020.c.
+   - Implementation of linked list functions inspired by Alistair Moffat
+     from "Programming, Problem Solving, and Abstraction with C".
 
    Author: David Sha
 ============================================================================= */
