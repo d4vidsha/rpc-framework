@@ -16,4 +16,6 @@
 
 #define MAX_PORT_LENGTH 5
 
+#define HASHTABLE_SIZE 100
+
 #endif
