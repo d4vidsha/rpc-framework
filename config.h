@@ -18,4 +18,6 @@
 
 #define HASHTABLE_SIZE 100
 
+#define BACKLOG 100
+
 #endif

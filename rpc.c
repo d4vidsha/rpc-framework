@@ -20,10 +20,15 @@
 #include <unistd.h>
 #include <signal.h>
 
+void int_handler(int _);
 int create_listening_socket(char *port);
+void print_handler(void *data);
 
 static volatile sig_atomic_t keep_running = 1;
 
+/*
+ * Int handler for SIGINT.
+ */
 void int_handler(int _) {
     (void)_;
     keep_running = 0;
@@ -66,6 +71,14 @@ int rpc_register(rpc_server *srv, char *name, rpc_handler handler) {
     // add handler to a hashtable
     hashtable_insert(srv->handlers, name, handler);
 
+    // get the handler back from the hashtable
+    rpc_handler h = hashtable_lookup(srv->handlers, name);
+
+    // check if the handler was successfully added
+    if (h == NULL) {
+        return FAILED;
+    }
+
     return EXIT_SUCCESS;
 }
 
@@ -80,22 +93,81 @@ void rpc_serve_all(rpc_server *srv) {
     signal(SIGINT, int_handler);
 
     // keep running until SIGINT is received
-    int i = 0;
     while (keep_running) {
-        printf("Waiting for connection... #%d\n", i + 1);
-        sleep(1);
-        i++;
+        // listen on socket, incoming connection requests will be queued
+        if (listen(srv->sockfd, BACKLOG) < 0) {
+            perror("listen");
+            exit(EXIT_FAILURE);
+        }
+
+        // accept a connection
+        struct sockaddr_in client_addr;
+        socklen_t client_addr_size = sizeof client_addr;
+        int newsockfd =
+            accept(srv->sockfd, (struct sockaddr *)&client_addr, &client_addr_size);
+        if (newsockfd < 0) {
+            perror("accept");
+            exit(EXIT_FAILURE);
+        }
+
+        // print the client's IP address
+        getpeername(newsockfd, (struct sockaddr *)&client_addr, &client_addr_size);
+        char ipstr[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &client_addr.sin_addr, ipstr, sizeof ipstr);
+        int port;
+        port = ntohs(client_addr.sin_port);
+        printf("Received connection from %s:%d on socket %d\n", ipstr, port, newsockfd);
+
+        // read characters from the connection, then process
+        char buffer[BUFSIZ];
+        int n = read(newsockfd, buffer, BUFSIZ);
+        if (n < 0) {
+            perror("read");
+            exit(EXIT_FAILURE);
+        }
+        // null-terminate the string
+        buffer[n] = '\0';
+
+
+
     }
 
     printf("\nShutting down...\n");
     return;
 }
 
-struct rpc_client {};
+struct rpc_client {
+    char *addr;
+    int port;
+    int sockfd;
+};
 
 struct rpc_handle {};
 
 rpc_client *rpc_init_client(char *addr, int port) {
+
+    // check if any of the parameters are NULL
+    if (addr == NULL || port < 0) {
+        return NULL;
+    }
+
+    // allocate memory for the client state
+    rpc_client *cl = malloc(sizeof(rpc_client));
+    if (cl == NULL) {
+        perror("malloc");
+        return NULL;
+    }
+
+    // add the address and port to the client state
+    cl->addr = addr;
+    cl->port = port;
+
+    // convert port from int to a string
+    char sport[MAX_PORT_LENGTH + 1];
+    sprintf(sport, "%d", port);
+
+    // create a socket
+
 
     return NULL;
 }
@@ -175,4 +247,54 @@ int create_listening_socket(char *port) {
 
     freeaddrinfo(res);
     return sockfd;
+}
+
+/*
+ * Create a socket given an address and port number.
+ *
+ * @param addr The address to connect to.
+ * @param port The port number to connect to.
+ * @return A file descriptor for the socket.
+ * @note This function was adapted from week 9 tute.
+ */
+int create_connection_socket(char *addr, char *port) {
+    int s, sockfd;
+    struct addrinfo hints, *res;
+
+    // create address we're going to connect to
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET6;      // use IPv6
+    hints.ai_socktype = SOCK_STREAM; // TCP sockets
+
+    // get address info for addr
+    if ((s = getaddrinfo(addr, port, &hints, &res)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+        exit(EXIT_FAILURE);
+    }
+
+    // create socket
+    sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    if (sockfd < 0) {
+        perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    // connect to remote host
+    if (connect(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
+        perror("connect");
+        exit(EXIT_FAILURE);
+    }
+
+    freeaddrinfo(res);
+    return sockfd;
+}
+
+/*
+ * Print the handler.
+ *
+ * @param data The handler to print.
+ */
+void print_handler(void *data) {
+    rpc_handler h = (rpc_handler)data;
+    printf("%p\n", h);
 }
