@@ -35,7 +35,7 @@ typedef struct hashtable {
  * @return The hash value.
  * @note See more on djb2 at https://theartincode.stanis.me/008-djb2/
  */
-int hash(const char *str);
+unsigned long hash(const char *str);
 
 /*
  * Creates a new hashtable.
@@ -62,7 +62,7 @@ void hashtable_destroy(hashtable_t *hashtable, void (*free_data)(void *));
  * @param key The key of the item.
  * @param data The data of the item.
  */
-int hashtable_insert(hashtable_t *hashtable, const char *key, void *data);
+void hashtable_insert(hashtable_t *hashtable, const char *key, void *data);
 
 /*
  * Lookup an item in the hashtable by key.
