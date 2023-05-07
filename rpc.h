@@ -64,8 +64,6 @@ rpc_server *rpc_init_server(int port);
  * given name is received.
  * @return 0 on success, FAILED on failure. If any of the parameters
  * are NULL, return FAILED.
- * @note TODO: Possibly use ID for the handler as the return value
- * instead of 0.
  */
 int rpc_register(rpc_server *srv, char *name, rpc_handler handler);
 

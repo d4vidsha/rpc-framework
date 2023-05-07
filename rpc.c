@@ -3,6 +3,9 @@
 
    Implementation of the RPC library.
 
+   References:
+   - How SIGINT is handled: https://stackoverflow.com/a/54267342
+
    Author: David Sha
 ============================================================================= */
 #define _POSIX_C_SOURCE 200112L
@@ -15,8 +18,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 int create_listening_socket(char *port);
+
+static volatile sig_atomic_t keep_running = 1;
+
+void int_handler(int _) {
+    (void)_;
+    keep_running = 0;
+}
 
 struct rpc_server {
     int port;
@@ -53,13 +64,27 @@ int rpc_register(rpc_server *srv, char *name, rpc_handler handler) {
     }
 
     // add handler to a hashtable
+    hashtable_insert(srv->handlers, name, handler);
 
-
-
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 void rpc_serve_all(rpc_server *srv) {
+
+    // check if the server is NULL
+    if (srv == NULL) {
+        return;
+    }
+
+    // handle SIGINT
+    struct sigaction act;
+    act.sa_handler = int_handler;
+    sigaction(SIGINT, &act, NULL);
+
+    // keep running until SIGINT is received
+    while (keep_running) {
+        // TODO: implement
+    }
 
     return;
 }
