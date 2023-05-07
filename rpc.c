@@ -87,7 +87,7 @@ void rpc_serve_all(rpc_server *srv) {
         i++;
     }
 
-    printf("Shutting down...\n");
+    printf("\nShutting down...\n");
     return;
 }
 
