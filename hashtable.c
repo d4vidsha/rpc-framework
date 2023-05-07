@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-unsigned long hash(unsigned char *str) {
+unsigned long hash(const char *str) {
     unsigned long hash = 5381;
     int c;
     while ((c = *str++)) {
@@ -51,7 +51,7 @@ void hashtable_destroy(hashtable_t *hashtable, void (*free_data)(void *)) {
     free(hashtable);
 }
 
-void hashtable_insert(hashtable_t *hashtable, unsigned char *key, void *data) {
+void hashtable_insert(hashtable_t *hashtable, const char *key, void *data) {
     assert(hashtable && key && data);
     unsigned long index = hash(key) % hashtable->size;
     item_t *new = (item_t *)malloc(sizeof(*new));
@@ -62,12 +62,12 @@ void hashtable_insert(hashtable_t *hashtable, unsigned char *key, void *data) {
     hashtable->table[index] = new;
 }
 
-void *hashtable_lookup(hashtable_t *hashtable, unsigned char *key) {
+void *hashtable_lookup(hashtable_t *hashtable, const char *key) {
     assert(hashtable && key);
     unsigned long index = hash(key) % hashtable->size;
     item_t *curr = hashtable->table[index];
     while (curr) {
-        if (strcmp((const char *)curr->key, (const char *)key) == 0) {
+        if (strcmp(curr->key, key) == 0) {
             return curr->data;
         }
         curr = curr->next;
@@ -75,12 +75,12 @@ void *hashtable_lookup(hashtable_t *hashtable, unsigned char *key) {
     return NULL;
 }
 
-void hashtable_remove(hashtable_t *hashtable, unsigned char *key, void (*free_data)(void *)) {
+void hashtable_remove(hashtable_t *hashtable, const char *key, void (*free_data)(void *)) {
     assert(hashtable && key);
     unsigned long index = hash(key) % hashtable->size;
     item_t *curr = hashtable->table[index], *prev = NULL;
     while (curr) {
-        if (strcmp((const char *)curr->key, (const char *)key) == 0) {
+        if (strcmp(curr->key, key) == 0) {
             if (prev) {
                 prev->next = curr->next;
             } else {

@@ -15,7 +15,7 @@
 /* structures =============================================================== */
 typedef struct item item_t;
 struct item {
-    unsigned char *key;
+    const char *key;
     void *data;
     item_t *next;
 };
@@ -35,7 +35,7 @@ typedef struct hashtable {
  * @return The hash value.
  * @note See more on djb2 at https://theartincode.stanis.me/008-djb2/
  */
-unsigned long hash(unsigned char *str);
+unsigned long hash(const char *str);
 
 /*
  * Creates a new hashtable.
@@ -62,7 +62,7 @@ void hashtable_destroy(hashtable_t *hashtable, void (*free_data)(void *));
  * @param key The key of the item.
  * @param data The data of the item.
  */
-void hashtable_insert(hashtable_t *hashtable, unsigned char *key, void *data);
+void hashtable_insert(hashtable_t *hashtable, const char *key, void *data);
 
 /*
  * Lookup an item in the hashtable by key.
@@ -71,7 +71,7 @@ void hashtable_insert(hashtable_t *hashtable, unsigned char *key, void *data);
  * @param key The key of the item.
  * @return A pointer to the item, or NULL if not found.
  */
-void *hashtable_lookup(hashtable_t *hashtable, unsigned char *key);
+void *hashtable_lookup(hashtable_t *hashtable, const char *key);
 
 /*
  * Remove an item from the hashtable.
@@ -81,7 +81,7 @@ void *hashtable_lookup(hashtable_t *hashtable, unsigned char *key);
  * @param free_data The function to free the data of the item. NULL if no
  * freeing is required.
  */
-void hashtable_remove(hashtable_t *hashtable, unsigned char *key, void (*free_data)(void *));
+void hashtable_remove(hashtable_t *hashtable, const char *key, void (*free_data)(void *));
 
 /*
  * Prints the hashtable.
