@@ -77,15 +77,17 @@ void rpc_serve_all(rpc_server *srv) {
     }
 
     // handle SIGINT
-    struct sigaction act;
-    act.sa_handler = int_handler;
-    sigaction(SIGINT, &act, NULL);
+    signal(SIGINT, int_handler);
 
     // keep running until SIGINT is received
+    int i = 0;
     while (keep_running) {
-        // TODO: implement
+        printf("Waiting for connection... #%d\n", i + 1);
+        sleep(1);
+        i++;
     }
 
+    printf("Shutting down...\n");
     return;
 }
 
