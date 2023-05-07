@@ -26,7 +26,6 @@ hashtable_t *hashtable_create(int size) {
     new->table = (item_t **)calloc(size, sizeof(item_t *));
     assert(new->table);
     new->size = size;
-    new->count = 0;
     return new;
 }
 
@@ -54,7 +53,6 @@ void hashtable_insert(hashtable_t *hashtable, unsigned long key, void *data) {
         new->data = create_empty_list();
         new->data = prepend(new->data, data);
         hashtable->table[index] = new;
-        hashtable->count++;
     }
 }
 
@@ -74,7 +72,6 @@ void hashtable_remove(hashtable_t *hashtable, unsigned long key, void (*free_dat
         free_list(hashtable->table[index]->data, free_data);
         free(hashtable->table[index]);
         hashtable->table[index] = NULL;
-        hashtable->count--;
     }
 }
 

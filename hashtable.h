@@ -23,7 +23,6 @@ typedef struct item {
 typedef struct hashtable {
     item_t **table;
     int size;
-    int count;
 } hashtable_t;
 
 
@@ -56,8 +55,7 @@ hashtable_t *hashtable_create(int size);
 void hashtable_destroy(hashtable_t *hashtable, void (*free_data)(void *data));
 
 /*
- * Insert an item to the hashtable. Count is incremented if the item is new.
- * If the item already exists, the data is prepended to the list of data.
+ * Insert an item to the hashtable.
  * 
  * @param hashtable The hashtable to insert the item to.
  * @param key The key of the item.
@@ -75,8 +73,7 @@ void hashtable_insert(hashtable_t *hashtable, unsigned long key, void *data);
 item_t *hashtable_search(hashtable_t *hashtable, unsigned long key);
 
 /*
- * Remove an item from the hashtable. Count is decremented if the item is
- * removed. If the item has multiple data, all data is removed.
+ * Remove an item from the hashtable.
  * 
  * @param hashtable The hashtable to remove the item from.
  * @param key The key of the item.
