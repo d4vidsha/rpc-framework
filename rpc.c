@@ -5,6 +5,7 @@
 
    References:
    - How SIGINT is handled: https://stackoverflow.com/a/54267342
+   - How to pass structs through sockets: https://stackoverflow.com/a/1577174
 
    Author: David Sha
 ============================================================================= */
@@ -58,10 +59,23 @@ struct rpc_handle {
 
 void print_handler(void *data);
 rpc_message *request(int sockfd, rpc_message *msg);
-int send_message(int sockfd, const char *msg);
-int receive_message(int sockfd, char *buffer, int size);
-void serialise_rpc_message(const rpc_message* message, char* buffer);
-rpc_message *deserialise_rpc_message(const char* buffer);
+int send_message(int sockfd, const unsigned char *msg, int size);
+int receive_message(int sockfd, unsigned char *buffer, int size);
+
+unsigned char *serialise_int(unsigned char *buffer, int value);
+int deserialise_int(unsigned char *buffer);
+unsigned char *serialise_size_t(unsigned char *buffer, size_t value);
+size_t deserialise_size_t(unsigned char *buffer);
+unsigned char *serialise_char(unsigned char *buffer, char value);
+char deserialise_char(unsigned char *buffer);
+unsigned char *serialise_string(unsigned char *buffer, const char *value);
+char *deserialise_string(unsigned char *buffer);
+unsigned char *serialise_rpc_handle(unsigned char *buffer, const rpc_handle *handle);
+rpc_handle *deserialise_rpc_handle(unsigned char *buffer);
+unsigned char *serialise_rpc_data(unsigned char *buffer, const rpc_data *data);
+rpc_data *deserialise_rpc_data(unsigned char *buffer);
+unsigned char *serialise_rpc_message(unsigned char *buffer, const rpc_message *message);
+rpc_message *deserialise_rpc_message(unsigned char *buffer);
 
 
 
@@ -156,7 +170,7 @@ void rpc_serve_all(rpc_server *srv) {
         printf("Received connection from %s:%d on socket %d\n", ipstr, port, newsockfd);
 
         // read characters from the connection, then process
-        char buffer[BUFSIZ];
+        unsigned char buffer[BUFSIZ];
         int n = read(newsockfd, buffer, BUFSIZ);
         if (n < 0) {
             perror("read");
@@ -195,11 +209,11 @@ void rpc_serve_all(rpc_server *srv) {
 
         // send the message to the server
         // convert message to serialised form
-        buffer[BUFSIZ];
-        serialise_rpc_message(msg, buffer);
+        unsigned char newbuf[BUFSIZ];
+        serialise_rpc_message(newbuf, msg);
 
         // send message
-        send_message(newsockfd, buffer);
+        send_message(newsockfd, newbuf, BUFSIZ);
 
 
 
@@ -331,8 +345,8 @@ rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
     }
 
     // use socket to send a message to the server
-    char buffer[BUFSIZ];
 
+    return NULL;
 }
 
 void rpc_close_client(rpc_client *cl) {
@@ -366,8 +380,8 @@ void print_handler(void *data) {
  * @param msg The message to send.
  * @return The number of bytes sent.
  */
-int send_message(int sockfd, const char *msg) {
-    int n = write(sockfd, msg, strlen(msg));
+int send_message(int sockfd, const unsigned char *msg, int size) {
+    int n = write(sockfd, msg, size);
     if (n < 0) {
         perror("write");
         exit(EXIT_FAILURE);
@@ -381,7 +395,7 @@ int send_message(int sockfd, const char *msg) {
  * @param buffer The buffer to store the message in.
  * @return The number of bytes received.
  */
-int receive_message(int sockfd, char *buffer, int size) {
+int receive_message(int sockfd, unsigned char *buffer, int size) {
     int n = read(sockfd, buffer, size);
     if (n < 0) {
         perror("read");
@@ -400,11 +414,11 @@ int receive_message(int sockfd, char *buffer, int size) {
 rpc_message *request(int sockfd, rpc_message *msg) {
 
     // convert message to serialised form
-    char buffer[BUFSIZ];
-    serialise_rpc_message(msg, buffer);
+    unsigned char buffer[BUFSIZ];
+    serialise_rpc_message(buffer, msg);
 
     // send message
-    send_message(sockfd, buffer);
+    send_message(sockfd, buffer, BUFSIZ);
 
     // receive response
     receive_message(sockfd, buffer, BUFSIZ);
@@ -415,96 +429,100 @@ rpc_message *request(int sockfd, rpc_message *msg) {
     return response;
 }
 
-/*
- * Serialise a message.
- * @param msg The message to serialise.
- * @return The serialised message.
- * @note We must be wary of serialisation and endianess.
- */
-void serialise_rpc_message(const rpc_message* message, char* buffer) {
-    int request_id = htonl(message->request_id);
-    memcpy(buffer, &request_id, sizeof(int));
-    buffer += sizeof(int);
-
-    int operation = htonl(message->operation);
-    memcpy(buffer, &operation, sizeof(int));
-    buffer += sizeof(int);
-
-    // serialise rpc_handle
-    int size = htonl(message->handle->size); // TODO: use Elias gamma coding
-    memcpy(buffer, &size, sizeof(int));
-    buffer += sizeof(int);
-
-    memcpy(buffer, message->handle->name, message->handle->size);
-    buffer += message->handle->size;
-
-    // serialise rpc_data
-    int data1 = htonl(message->data->data1);
-    memcpy(buffer, &data1, sizeof(int));
-    buffer += sizeof(int);
-
-    int data2_len = htonl(message->data->data2_len); // TODO: use Elias gamma coding
-    memcpy(buffer, &data2_len, sizeof(int));
-    buffer += sizeof(int);
-
-    memcpy(buffer, message->data->data2, message->data->data2_len);
-    buffer += message->data->data2_len;
+unsigned char *serialise_int(unsigned char *buffer, int value) {
+    value = htonl(value);
+    memcpy(buffer, &value, sizeof(int));
+    return buffer + sizeof(int);
 }
 
-/*
- * Deserialise a message.
- * @param buffer The buffer to deserialise.
- * @return The deserialised message.
- * @note We must be wary of serialisation and endianess.
- */
-rpc_message *deserialise_rpc_message(const char* buffer) {
-    rpc_message *msg = (rpc_message *)malloc(sizeof(*msg));
-    assert(msg);
+int deserialise_int(unsigned char *buffer) {
+    int value;
+    memcpy(&value, buffer, sizeof(int));
+    return ntohl(value);
+}
 
-    int request_id;
-    memcpy(&request_id, buffer, sizeof(int));
-    msg->request_id = ntohl(request_id);
-    buffer += sizeof(int);
+unsigned char *serialise_size_t(unsigned char *buffer, size_t value) {
+    value = htonl(value);
+    memcpy(buffer, &value, sizeof(size_t));
+    return buffer + sizeof(size_t);
+}
 
-    int operation;
-    memcpy(&operation, buffer, sizeof(int));
-    msg->operation = ntohl(operation);
-    buffer += sizeof(int);
+size_t deserialise_size_t(unsigned char *buffer) {
+    size_t value;
+    memcpy(&value, buffer, sizeof(size_t));
+    return ntohl(value);
+}
 
-    // deserialise rpc_handle
-    msg->handle = (rpc_handle *)malloc(sizeof(*msg->handle));
-    assert(msg->handle);
+unsigned char *serialise_char(unsigned char *buffer, char value) {
+    *buffer = value;
+    return buffer + sizeof(char);
+}
 
-    int size;
-    memcpy(&size, buffer, sizeof(int));
-    msg->handle->size = ntohl(size);
-    buffer += sizeof(int);
+char deserialise_char(unsigned char *buffer) {
+    char value;
+    memcpy(&value, buffer, sizeof(char));
+    return value;
+}
 
-    msg->handle->name = (char *)malloc(sizeof(char) * msg->handle->size);
-    assert(msg->handle->name);
+unsigned char *serialise_string(unsigned char *buffer, const char *value) {
+    int size = strlen(value);
+    buffer = serialise_int(buffer, size);
+    memcpy(buffer, value, size);
+    return buffer + size;
+}
 
-    memcpy(msg->handle->name, buffer, msg->handle->size);
-    buffer += msg->handle->size;
+char *deserialise_string(unsigned char *buffer) {
+    int size = deserialise_int(buffer);
+    char *value = (char *)malloc(sizeof(char) * size);
+    memcpy(value, buffer, size);
+    return value;
+}
 
-    // deserialise rpc_data
-    msg->data = (rpc_data *)malloc(sizeof(*msg->data));
-    assert(msg->data);
+unsigned char *serialise_rpc_handle(unsigned char *buffer, const rpc_handle *handle) {
+    buffer = serialise_string(buffer, handle->name);
+    return buffer;
+}
 
-    int data1;
-    memcpy(&data1, buffer, sizeof(int));
-    msg->data->data1 = ntohl(data1);
-    buffer += sizeof(int);
+rpc_handle *deserialise_rpc_handle(unsigned char *buffer) {
+    rpc_handle *handle = (rpc_handle *)malloc(sizeof(*handle));
+    handle->name = deserialise_string(buffer);
+    return handle;
+}
 
-    int data2_len;
-    memcpy(&data2_len, buffer, sizeof(int));
-    msg->data->data2_len = ntohl(data2_len);
-    buffer += sizeof(int);
+unsigned char *serialise_rpc_data(unsigned char *buffer, const rpc_data *data) {
+    buffer = serialise_int(buffer, data->data1);
+    
+    // optionally serialise data2
+    if (data->data2_len > 0 && data->data2 != NULL) {
+        buffer = serialise_size_t(buffer, data->data2_len);
+        memcpy(buffer, data->data2, data->data2_len);
+        return buffer + data->data2_len;
+    }
+    return buffer;
+}
 
-    msg->data->data2 = (char *)malloc(sizeof(char) * msg->data->data2_len);
-    assert(msg->data->data2);
+rpc_data *deserialise_rpc_data(unsigned char *buffer) {
+    rpc_data *data = (rpc_data *)malloc(sizeof(*data));
+    data->data1 = deserialise_int(buffer);
+    data->data2_len = deserialise_size_t(buffer);
+    data->data2 = (char *)malloc(sizeof(char) * data->data2_len);
+    memcpy(data->data2, buffer, data->data2_len);
+    return data;
+}
 
-    memcpy(msg->data->data2, buffer, msg->data->data2_len);
-    buffer += msg->data->data2_len;
+unsigned char *serialise_rpc_message(unsigned char *buffer, const rpc_message *message) {
+    buffer = serialise_int(buffer, message->request_id);
+    buffer = serialise_int(buffer, message->operation);
+    buffer = serialise_rpc_handle(buffer, message->handle);
+    buffer = serialise_rpc_data(buffer, message->data);
+    return buffer;
+}
 
-    return msg;
+rpc_message *deserialise_rpc_message(unsigned char *buffer) {
+    rpc_message *message = (rpc_message *)malloc(sizeof(*message));
+    message->request_id = deserialise_int(buffer);
+    message->operation = deserialise_int(buffer);
+    message->handle = deserialise_rpc_handle(buffer);
+    message->data = deserialise_rpc_data(buffer);
+    return message;
 }
