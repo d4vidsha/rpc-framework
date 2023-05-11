@@ -77,6 +77,10 @@ rpc_data *deserialise_rpc_data(unsigned char *buffer);
 unsigned char *serialise_rpc_message(unsigned char *buffer, const rpc_message *message);
 rpc_message *deserialise_rpc_message(unsigned char *buffer);
 
+rpc_message *new_rpc_message(int request_id, int operation, rpc_handle *handle, rpc_data *data);
+rpc_handle *new_rpc_handle(const char *name);
+rpc_data *new_rpc_data(int data1, size_t data2_len, char *data2);
+
 
 
 
@@ -183,28 +187,35 @@ void rpc_serve_all(rpc_server *srv) {
         // print the bytes received
         printf("Received message: %s\n", buffer);
 
+        // deserialise the message
+        rpc_message *msg = deserialise_rpc_message(buffer);
 
+        switch (msg->operation) {
 
+            case FIND:
+                printf("Received FIND request\n");
+                printf("Looking for handler for %s\n", msg->handle->name);
 
-        // create a message to send to the server
-        char *name = "test";
-        rpc_message *msg;
-        msg = (rpc_message *)malloc(sizeof(*msg));
-        assert(msg);
+                // get the handler from the hashtable
+                rpc_handler h = hashtable_lookup(srv->handlers, msg->handle->name);
+                
+                // check if the handler exists
+                int exists = h != NULL;
+                if (h == NULL) {
+                    fprintf(stderr, "No handler for %s\n", msg->handle->name);
+                } else {
+                    fprintf(stderr, "Found handler for %s\n", msg->handle->name);
+                }
+                new_rpc_message(0, REPLY, new_rpc_handle(msg->handle->name), new_rpc_data(exists, 0, NULL));
+                break;
 
-        // set the request id
-        msg->request_id = 0;
+            case CALL:
 
-        // set the operation
-        msg->operation = REPLY;
+            case REPLY:
 
-        // set the handler name and size
-        msg->handle = (rpc_handle *)malloc(sizeof(*msg->handle));
-        assert(msg->handle);
-        msg->handle->name = (char *)malloc(sizeof(char) * (strlen(name) + 1));
-        assert(msg->handle->name);
-        strcpy(msg->handle->name, name);
-        msg->handle->size = strlen(name) + 1;
+            default:
+                break;
+        }
 
 
         // send the message to the server
@@ -214,41 +225,6 @@ void rpc_serve_all(rpc_server *srv) {
 
         // send message
         send_message(newsockfd, newbuf, BUFSIZ);
-
-
-
-
-
-        // // get the action to perform
-        // char *action = strtok(buffer, " ");
-        
-        // // if action is to find a handler
-        // if (strcmp(action, "find") == 0) {
-        //     // get the name of the handler
-        //     char *name = strtok(NULL, " ");
-        //     // get the handler from the hashtable
-        //     rpc_handler h = hashtable_lookup(srv->handlers, name);
-        //     // if the handler exists
-        //     char msg[BUFSIZ];
-        //     if (h != NULL) {
-        //         // send a message to the client
-        //         sprintf(msg, "found %s", name);
-        //         n = write(newsockfd, msg, strlen(msg));
-        //         if (n < 0) {
-        //             perror("write");
-        //             exit(EXIT_FAILURE);
-        //         }
-        //     } else {
-        //         // send a message to the client
-        //         sprintf(msg, "notfound %s", name);
-        //         n = write(newsockfd, msg, strlen(msg));
-        //         if (n < 0) {
-        //             perror("write");
-        //             exit(EXIT_FAILURE);
-        //         }
-        //     }
-        // }
-
     }
 
     printf("\nShutting down...\n");
@@ -297,27 +273,7 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
         return NULL;
     }
 
-    // create a message to send to the server
-    rpc_message *msg;
-    msg = (rpc_message *)malloc(sizeof(*msg));
-    assert(msg);
-
-    // set the request id
-    msg->request_id = 0;
-
-    // set the operation
-    msg->operation = FIND;
-
-    // set the handler name and size
-    msg->handle = (rpc_handle *)malloc(sizeof(*msg->handle));
-    assert(msg->handle);
-    msg->handle->name = (char *)malloc(sizeof(char) * (strlen(name) + 1));
-    assert(msg->handle->name);
-    strcpy(msg->handle->name, name);
-    msg->handle->size = strlen(name) + 1;
-
-    // add a payload
-    msg->data = NULL;
+    rpc_message *msg = new_rpc_message(0, FIND, new_rpc_handle(name), NULL);
 
     // send message to the server and wait for a reply
     rpc_message *reply = request(cl->sockfd, msg);
@@ -468,17 +424,17 @@ char deserialise_char(unsigned char *buffer) {
 }
 
 unsigned char *serialise_string(unsigned char *buffer, const char *value) {
-    int size = strlen(value);
-    buffer = serialise_int(buffer, size);
-    strcpy(buffer, value);
-    return buffer + size;
+    size_t len = strlen(value) + 1;
+    buffer = serialise_size_t(buffer, len);
+    memcpy(buffer, value, len);
+    return buffer + len;
 }
 
 char *deserialise_string(unsigned char *buffer) {
-    int size = deserialise_int(buffer);
-    char *value = (char *)malloc(sizeof(char) * size);
+    size_t len = deserialise_size_t(buffer);
+    char *value = (char *)malloc(sizeof(char) * len);
     assert(value);
-    strcpy(value, buffer + sizeof(int));
+    memcpy(value, buffer + sizeof(size_t), len);
     return value;
 }
 
@@ -537,4 +493,54 @@ rpc_message *deserialise_rpc_message(unsigned char *buffer) {
     message->handle = deserialise_rpc_handle(buffer);
     message->data = deserialise_rpc_data(buffer);
     return message;
+}
+
+/*
+ * Create a new RPC message.
+ * @param request_id The request ID.
+ * @param operation The operation to perform.
+ * @param handle The handle to perform the operation on.
+ * @param data The data to send.
+ * @return The new RPC message.
+ */
+rpc_message *new_rpc_message(int request_id, int operation, rpc_handle *handle, rpc_data *data) {
+    rpc_message *message = (rpc_message *)malloc(sizeof(*message));
+    assert(message);
+    message->request_id = request_id;
+    message->operation = operation;
+    message->handle = handle;
+    message->data = data;
+    return message;
+}
+
+/*
+ * Create a new RPC handle.
+ * @param name The name of the handle.
+ * @return The new RPC handle.
+ */
+rpc_handle *new_rpc_handle(const char *name) {
+    rpc_handle *h;
+    h = (rpc_handle *)malloc(sizeof(*h));
+    assert(h);
+    h->name = (char *)malloc(sizeof(char) * (strlen(name) + 1));
+    assert(h->name);
+    strcpy(h->name, name);
+    h->size = strlen(name) + 1;
+    return h;
+}
+
+/*
+ * Create a new RPC data.
+ * @param data1 The first data value.
+ * @param data2 The second data value.
+ * @param data2_len The length of the second data value.
+ * @return The new RPC data.
+ */
+rpc_data *new_rpc_data(int data1, size_t data2_len, char *data2) {
+    rpc_data *data = (rpc_data *)malloc(sizeof(*data));
+    assert(data);
+    data->data1 = data1;
+    data->data2 = data2;
+    data->data2_len = data2_len;
+    return data;
 }
