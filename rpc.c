@@ -8,10 +8,10 @@
 
    Author: David Sha
 ============================================================================= */
-#define _POSIX_C_SOURCE 200112L
 #include "rpc.h"
 #include "config.h"
 #include "hashtable.h"
+#include "sockets.h"
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -19,6 +19,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <assert.h>
 
 static volatile sig_atomic_t keep_running = 1;
 
@@ -31,14 +32,36 @@ static void sig_handler(int _) {
 }
 
 
+typedef struct {
+    int request_id;
+    enum {
+        FIND,
+        CALL,
+        REPLY,
+    } operation;
+    rpc_handle *handle;
+    rpc_data *data;
+} rpc_message;
 
+
+struct rpc_client {
+    char *addr;
+    int port;
+    int sockfd;
+};
+
+struct rpc_handle {
+    char *name;
+    size_t size;
+};
 
 
 void print_handler(void *data);
-int create_listening_socket(char *port);
-int create_connection_socket(char *addr, char *port);
+rpc_message *request(int sockfd, rpc_message *msg);
 int send_message(int sockfd, const char *msg);
 int receive_message(int sockfd, char *buffer, int size);
+void serialise_rpc_message(const rpc_message* message, char* buffer);
+rpc_message *deserialise_rpc_message(const char* buffer);
 
 
 
@@ -53,11 +76,9 @@ struct rpc_server {
 rpc_server *rpc_init_server(int port) {
 
     // allocate memory for the server state
-    rpc_server *srv = malloc(sizeof(rpc_server));
-    if (srv == NULL) {
-        perror("malloc");
-        return NULL;
-    }
+    rpc_server *srv;
+    srv = (rpc_server *)malloc(sizeof(*srv));
+    assert(srv);
 
     // convert port from int to a string
     char sport[MAX_PORT_LENGTH + 1];
@@ -145,27 +166,74 @@ void rpc_serve_all(rpc_server *srv) {
         // null-terminate the string
         buffer[n] = '\0';
 
-        // get the action to perform
-        char *action = strtok(buffer, " ");
+        // print the bytes received
+        printf("Received message: %s\n", buffer);
+
+
+
+
+        // create a message to send to the server
+        char *name = "test";
+        rpc_message *msg;
+        msg = (rpc_message *)malloc(sizeof(*msg));
+        assert(msg);
+
+        // set the request id
+        msg->request_id = 0;
+
+        // set the operation
+        msg->operation = REPLY;
+
+        // set the handler name and size
+        msg->handle = (rpc_handle *)malloc(sizeof(*msg->handle));
+        assert(msg->handle);
+        msg->handle->name = (char *)malloc(sizeof(char) * (strlen(name) + 1));
+        assert(msg->handle->name);
+        strcpy(msg->handle->name, name);
+        msg->handle->size = strlen(name) + 1;
+
+
+        // send the message to the server
+        // convert message to serialised form
+        buffer[BUFSIZ];
+        serialise_rpc_message(msg, buffer);
+
+        // send message
+        send_message(newsockfd, buffer);
+
+
+
+
+
+        // // get the action to perform
+        // char *action = strtok(buffer, " ");
         
-        // if action is to find a handler
-        if (strcmp(action, "find") == 0) {
-            // get the name of the handler
-            char *name = strtok(NULL, " ");
-            // get the handler from the hashtable
-            rpc_handler h = hashtable_lookup(srv->handlers, name);
-            // if the handler exists
-            char msg[BUFSIZ];
-            if (h != NULL) {
-                // send a message to the client
-                sprintf(msg, "found %s", name);
-                n = send_message(newsockfd, msg);
-            } else {
-                // send a message to the client
-                sprintf(msg, "notfound %s", name);
-                n = send_message(newsockfd, msg);
-            }
-        }
+        // // if action is to find a handler
+        // if (strcmp(action, "find") == 0) {
+        //     // get the name of the handler
+        //     char *name = strtok(NULL, " ");
+        //     // get the handler from the hashtable
+        //     rpc_handler h = hashtable_lookup(srv->handlers, name);
+        //     // if the handler exists
+        //     char msg[BUFSIZ];
+        //     if (h != NULL) {
+        //         // send a message to the client
+        //         sprintf(msg, "found %s", name);
+        //         n = write(newsockfd, msg, strlen(msg));
+        //         if (n < 0) {
+        //             perror("write");
+        //             exit(EXIT_FAILURE);
+        //         }
+        //     } else {
+        //         // send a message to the client
+        //         sprintf(msg, "notfound %s", name);
+        //         n = write(newsockfd, msg, strlen(msg));
+        //         if (n < 0) {
+        //             perror("write");
+        //             exit(EXIT_FAILURE);
+        //         }
+        //     }
+        // }
 
     }
 
@@ -173,15 +241,11 @@ void rpc_serve_all(rpc_server *srv) {
     return;
 }
 
-struct rpc_client {
-    char *addr;
-    int port;
-    int sockfd;
-};
 
-struct rpc_handle {
-    char *name;
-};
+
+
+
+
 
 rpc_client *rpc_init_client(char *addr, int port) {
 
@@ -191,19 +255,14 @@ rpc_client *rpc_init_client(char *addr, int port) {
     }
 
     // allocate memory for the client state
-    rpc_client *cl = malloc(sizeof(rpc_client));
-    if (cl == NULL) {
-        perror("malloc");
-        return NULL;
-    }
+    rpc_client *cl;
+    cl = (rpc_client *)malloc(sizeof(*cl));
+    assert(cl);
 
 
     // add the address and port to the client state
-    cl->addr = malloc(sizeof(char) * (strlen(addr) + 1));
-    if (cl->addr == NULL) {
-        perror("malloc");
-        return NULL;
-    }
+    cl->addr = (char *)malloc(sizeof(char) * (strlen(addr) + 1));
+    assert(cl->addr);
     strcpy(cl->addr, addr);
     cl->port = port;
 
@@ -224,40 +283,42 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
         return NULL;
     }
 
-    // use socket to send a message to the server
-    char buffer[BUFSIZ];
-    sprintf(buffer, "find %s", name);
-    int n = send_message(cl->sockfd, buffer);
+    // create a message to send to the server
+    rpc_message *msg;
+    msg = (rpc_message *)malloc(sizeof(*msg));
+    assert(msg);
 
-    // read the response from the server
-    n = receive_message(cl->sockfd, buffer, BUFSIZ);
+    // set the request id
+    msg->request_id = 0;
 
-    // null-terminate the string
-    buffer[n] = '\0';
+    // set the operation
+    msg->operation = FIND;
+
+    // set the handler name and size
+    msg->handle = (rpc_handle *)malloc(sizeof(*msg->handle));
+    assert(msg->handle);
+    msg->handle->name = (char *)malloc(sizeof(char) * (strlen(name) + 1));
+    assert(msg->handle->name);
+    strcpy(msg->handle->name, name);
+    msg->handle->size = strlen(name) + 1;
+
+    // send message to the server and wait for a reply
+    rpc_message *reply = request(cl->sockfd, msg);
 
     // check if the handler exists
-    char *status = strtok(buffer, " ");
-
-    // if the handler exists
-    if (strcmp(status, "found") == 0) {
-        // allocate memory for the handler
-        rpc_handle *h = malloc(sizeof(rpc_handle));
-        if (h == NULL) {
-            perror("malloc");
-            return NULL;
+    if (reply->operation == REPLY) {
+        if (reply->data->data1 == TRUE) {
+            // create a new rpc_handle
+            rpc_handle *h;
+            h = (rpc_handle *)malloc(sizeof(*h));
+            assert(h);
+            h->name = (char *)malloc(sizeof(char) * (strlen(name) + 1));
+            assert(h->name);
+            strcpy(h->name, name);
+            h->size = strlen(name) + 1;
+            return h;
         }
-
-        // add the name and handler to the handler state
-        h->name = malloc(sizeof(char) * (strlen(name) + 1));
-        if (h->name == NULL) {
-            perror("malloc");
-            return NULL;
-        }
-        strcpy(h->name, name);
-
-        return h;
     }
-
 
     return NULL;
 }
@@ -269,7 +330,9 @@ rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
         return NULL;
     }
 
-    return NULL;
+    // use socket to send a message to the server
+    char buffer[BUFSIZ];
+
 }
 
 void rpc_close_client(rpc_client *cl) {
@@ -295,106 +358,6 @@ void rpc_data_free(rpc_data *data) {
 void print_handler(void *data) {
     rpc_handler h = (rpc_handler)data;
     printf("%p\n", h);
-}
-
-/*
- * Create a socket given a port number.
- *
- * @param port The port number to bind to.
- * @return A file descriptor for the socket.
- * @note This function was adapted from week 9 tute.
- */
-int create_listening_socket(char *port) {
-    int re, s, sockfd;
-    struct addrinfo hints, *res;
-
-    // create address we're going to listen on (with given port number)
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET6;      // use IPv6
-    hints.ai_socktype = SOCK_STREAM; // use TCP
-    hints.ai_flags = AI_PASSIVE;     // for bind, listen, accept
-
-    // get address info with above parameters
-    if ((s = getaddrinfo(NULL, port, &hints, &res)) != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
-        exit(EXIT_FAILURE);
-    }
-
-    // create socket
-    sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if (sockfd < 0) {
-        perror("socket");
-        exit(EXIT_FAILURE);
-    }
-
-    // set socket to be reusable
-    re = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &re, sizeof re) < 0) {
-        perror("setsockopt");
-        exit(EXIT_FAILURE);
-    }
-
-    // bind address to socket
-    if (bind(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
-        perror("bind");
-        exit(EXIT_FAILURE);
-    }
-
-    freeaddrinfo(res);
-    return sockfd;
-}
-
-/*
- * Create a socket given an address and port number.
- *
- * @param addr The address to connect to.
- * @param port The port number to connect to.
- * @return A file descriptor for the socket.
- * @note This function was adapted from week 9 tute.
- */
-int create_connection_socket(char *addr, char *port) {
-    int s, sockfd;
-    struct addrinfo hints, *servinfo, *rp;
-
-    // create address we're going to connect to
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET6;      // use IPv6
-    hints.ai_socktype = SOCK_STREAM; // TCP sockets
-
-    // get address info for addr
-    if ((s = getaddrinfo(addr, port, &hints, &servinfo)) != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
-        exit(EXIT_FAILURE);
-    }
-
-    // create socket
-    sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
-    if (sockfd < 0) {
-        perror("socket");
-        exit(EXIT_FAILURE);
-    }
-
-    // connect to remote host
-    for (rp = servinfo; rp != NULL; rp = rp->ai_next) {
-        sockfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-        if (sockfd == FAILED) {
-            continue;
-        }
-
-        if (connect(sockfd, rp->ai_addr, rp->ai_addrlen) != FAILED) {
-            break;
-        }
-
-        close(sockfd);
-    }
-
-    if (rp == NULL) {
-        fprintf(stderr, "Could not connect\n");
-        exit(EXIT_FAILURE);
-    }
-
-    freeaddrinfo(servinfo);
-    return sockfd;
 }
 
 /*
@@ -425,4 +388,123 @@ int receive_message(int sockfd, char *buffer, int size) {
         exit(EXIT_FAILURE);
     }
     return n;
+}
+
+/*
+ * Send a message through a socket and receive a response.
+ * @param sockfd The socket to send the message to.
+ * @param msg The message to send.
+ * @return The response from the server.
+ * @note We must be wary of serialisation and endianess.
+ */
+rpc_message *request(int sockfd, rpc_message *msg) {
+
+    // convert message to serialised form
+    char buffer[BUFSIZ];
+    serialise_rpc_message(msg, buffer);
+
+    // send message
+    send_message(sockfd, buffer);
+
+    // receive response
+    receive_message(sockfd, buffer, BUFSIZ);
+
+    // deserialise response
+    rpc_message *response = deserialise_rpc_message(buffer);
+
+    return response;
+}
+
+/*
+ * Serialise a message.
+ * @param msg The message to serialise.
+ * @return The serialised message.
+ * @note We must be wary of serialisation and endianess.
+ */
+void serialise_rpc_message(const rpc_message* message, char* buffer) {
+    int request_id = htonl(message->request_id);
+    memcpy(buffer, &request_id, sizeof(int));
+    buffer += sizeof(int);
+
+    int operation = htonl(message->operation);
+    memcpy(buffer, &operation, sizeof(int));
+    buffer += sizeof(int);
+
+    // serialise rpc_handle
+    int size = htonl(message->handle->size); // TODO: use Elias gamma coding
+    memcpy(buffer, &size, sizeof(int));
+    buffer += sizeof(int);
+
+    memcpy(buffer, message->handle->name, message->handle->size);
+    buffer += message->handle->size;
+
+    // serialise rpc_data
+    int data1 = htonl(message->data->data1);
+    memcpy(buffer, &data1, sizeof(int));
+    buffer += sizeof(int);
+
+    int data2_len = htonl(message->data->data2_len); // TODO: use Elias gamma coding
+    memcpy(buffer, &data2_len, sizeof(int));
+    buffer += sizeof(int);
+
+    memcpy(buffer, message->data->data2, message->data->data2_len);
+    buffer += message->data->data2_len;
+}
+
+/*
+ * Deserialise a message.
+ * @param buffer The buffer to deserialise.
+ * @return The deserialised message.
+ * @note We must be wary of serialisation and endianess.
+ */
+rpc_message *deserialise_rpc_message(const char* buffer) {
+    rpc_message *msg = (rpc_message *)malloc(sizeof(*msg));
+    assert(msg);
+
+    int request_id;
+    memcpy(&request_id, buffer, sizeof(int));
+    msg->request_id = ntohl(request_id);
+    buffer += sizeof(int);
+
+    int operation;
+    memcpy(&operation, buffer, sizeof(int));
+    msg->operation = ntohl(operation);
+    buffer += sizeof(int);
+
+    // deserialise rpc_handle
+    msg->handle = (rpc_handle *)malloc(sizeof(*msg->handle));
+    assert(msg->handle);
+
+    int size;
+    memcpy(&size, buffer, sizeof(int));
+    msg->handle->size = ntohl(size);
+    buffer += sizeof(int);
+
+    msg->handle->name = (char *)malloc(sizeof(char) * msg->handle->size);
+    assert(msg->handle->name);
+
+    memcpy(msg->handle->name, buffer, msg->handle->size);
+    buffer += msg->handle->size;
+
+    // deserialise rpc_data
+    msg->data = (rpc_data *)malloc(sizeof(*msg->data));
+    assert(msg->data);
+
+    int data1;
+    memcpy(&data1, buffer, sizeof(int));
+    msg->data->data1 = ntohl(data1);
+    buffer += sizeof(int);
+
+    int data2_len;
+    memcpy(&data2_len, buffer, sizeof(int));
+    msg->data->data2_len = ntohl(data2_len);
+    buffer += sizeof(int);
+
+    msg->data->data2 = (char *)malloc(sizeof(char) * msg->data->data2_len);
+    assert(msg->data->data2);
+
+    memcpy(msg->data->data2, buffer, msg->data->data2_len);
+    buffer += msg->data->data2_len;
+
+    return msg;
 }
