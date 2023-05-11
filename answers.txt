@@ -14,13 +14,28 @@ The RPC framework should handle the authentication so that a standardised authen
 TCP should be used over UDP. For the RPC framework, it is critical that packets are received in the correct order, and that no packets are lost. TCP provides this functionality. The trade-off for using TCP is that it is slower than UDP, as it requires a three-way handshake to establish a connection, and it also requires the server to keep track of the state of each connection. This is a worthwhile trade-off for the RPC framework.
 
 4. In which function(s) should the socket(s) be created?
-Sockets should be created in the ...
+Sockets should be created in the `rpc_init_server` and `rpc_init_client` functions. Sockets should be created before any RPC calls are made.
 
 5. Should `rpc_client` and `rpc_server` be allocated dynamically or statically? What are the implications for the client and server code?
-...
+`rpc_client` and `rpc_server` should be allocated dynamically. If they were allocated statically, only one client and one server could be created, limiting the functionality of the RPC framework. By allocating them dynamically, multiple clients and servers can be created, allowing for multiple RPC calls to be made at the same time.
 
 6. What happens if one host uses big-endian byte order and the other uses little-endian? How does that relate to "network byte order"?
-...
+If one host uses big-endian byte order and the other uses little-endian, then the data will be interpreted incorrectly as data will be sent in the wrong order. Network byte order is big-endian, so the data should be converted to big-endian before being sent over the network.
 
 3.3 Protocol: Design and document a simple application layer protocol for this RPC system.
-...
+
+Protocol steps:
+1. The client sends a request to the server.
+2. The server receives and processes the request.
+3. The server sends a response to the client.
+4. The client receives and processes the response.
+
+The client and server should be able to handle multiple requests and responses at the same time.
+
+We will use a single `rpc_message` struct to represent both requests and responses.
+
+The `rpc_message` struct will contain the following fields:
+- `int request_id`: The ID of the request. Useful for matching requests to responses.
+- `enum op`: The operation can be either "find", "call" or "reply".
+- `rpc_handle *handle`: The handle of the function to be called or returned.
+- `rpc_data *data`: The data to be passed to the function or returned by the function.
