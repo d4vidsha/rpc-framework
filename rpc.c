@@ -174,18 +174,8 @@ void rpc_serve_all(rpc_server *srv) {
         printf("Received connection from %s:%d on socket %d\n", ipstr, port, newsockfd);
 
         // read characters from the connection, then process
-        unsigned char buffer[BUFSIZ];
-        int n = read(newsockfd, buffer, BUFSIZ);
-        if (n < 0) {
-            perror("read");
-            exit(EXIT_FAILURE);
-        }
-        
-        // null-terminate the string
-        buffer[n] = '\0';
-
-        // print the bytes received
-        printf("Received message: %s\n", buffer);
+        unsigned char *buffer = (unsigned char *)malloc(sizeof(*buffer) * BUFSIZ);
+        receive_message(newsockfd, buffer, BUFSIZ);
 
         // deserialise the message
         rpc_message *msg = deserialise_rpc_message(buffer);
@@ -217,14 +207,17 @@ void rpc_serve_all(rpc_server *srv) {
                 break;
         }
 
-
         // send the message to the server
         // convert message to serialised form
-        unsigned char newbuf[BUFSIZ];
+        unsigned char *newbuf = (unsigned char *)malloc(sizeof(*newbuf) * BUFSIZ);
         serialise_rpc_message(newbuf, msg);
 
         // send message
         send_message(newsockfd, newbuf, BUFSIZ);
+
+        // free memory
+        free(buffer);
+        free(newbuf);
     }
 
     printf("\nShutting down...\n");
@@ -373,7 +366,7 @@ int receive_message(int sockfd, unsigned char *buffer, int size) {
 rpc_message *request(int sockfd, rpc_message *msg) {
 
     // convert message to serialised form
-    unsigned char buffer[BUFSIZ];
+    unsigned char *buffer = (unsigned char *)malloc(sizeof(*buffer) * BUFSIZ);
     serialise_rpc_message(buffer, msg);
 
     // send message
@@ -384,6 +377,9 @@ rpc_message *request(int sockfd, rpc_message *msg) {
 
     // deserialise response
     rpc_message *response = deserialise_rpc_message(buffer);
+
+    // free memory
+    free(buffer);
 
     return response;
 }
