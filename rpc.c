@@ -59,6 +59,7 @@ void handle_all_requests(rpc_server *srv, rpc_client_state *cl);
 void rpc_shutdown_server(rpc_server *srv);
 int is_socket_closed(int sockfd);
 
+void print_client_info(rpc_client_state *cl);
 void print_handler(void *data);
 rpc_message *request(int sockfd, rpc_message *msg);
 int write_bytes(int sockfd, const unsigned char *msg, int size);
@@ -83,10 +84,9 @@ rpc_handle *new_rpc_handle(const char *name);
 void free_rpc_handle(rpc_handle *handle);
 void print_rpc_handle(rpc_handle *handle);
 rpc_data *new_rpc_data(int data1, size_t data2_len, void *data2);
-void free_rpc_data(rpc_data *data);
 void print_rpc_message(rpc_message *message);
 rpc_message *new_rpc_message(int request_id, int operation, char *function_name, rpc_data *data);
-void free_rpc_message(rpc_message *message);
+void free_rpc_message(rpc_message *message, void (*free_data)(rpc_data *));
 void print_rpc_data(rpc_data *data);
 
 
@@ -169,7 +169,7 @@ void rpc_serve_all(rpc_server *srv) {
         // accept a connection non-blocking using select
         int sockfd;
         struct sockaddr_in client_addr;
-        socklen_t client_addr_size = sizeof(client_addr);
+        socklen_t client_addr_size = sizeof client_addr;
         fd_set readfds;
         FD_ZERO(&readfds);
         FD_SET(srv->sockfd, &readfds);
@@ -200,12 +200,8 @@ void rpc_serve_all(rpc_server *srv) {
         // add to list of clients
         append(srv->clients, cl);
 
-        // print the client's IP address
-        getpeername(cl->sockfd, (struct sockaddr *)&cl->client_addr, &cl->client_addr_size);
-        char ipstr[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &cl->client_addr.sin_addr, ipstr, sizeof ipstr);
-        int port = ntohs(cl->client_addr.sin_port);
-        fprintf(stderr, "Received connection from %s:%d on socket %d\n", ipstr, port, cl->sockfd);
+        // print the client connection information
+        print_client_info(cl);
 
         // handle requests from the client
         handle_all_requests(srv, cl);
@@ -214,6 +210,38 @@ void rpc_serve_all(rpc_server *srv) {
     printf("\nShutting down...\n");
     rpc_shutdown_server(srv);
     return;
+}
+
+/*
+ * Print client's IP address and port number.
+ *
+ * @param cl The client state.
+ */
+void print_client_info(rpc_client_state *cl) {
+    struct sockaddr_storage addr;
+    socklen_t addr_len = sizeof(addr);
+    char ip_str[INET6_ADDRSTRLEN];
+
+    if (getpeername(cl->sockfd, (struct sockaddr *)&addr, &addr_len) == -1) {
+        perror("getpeername");
+        return;
+    }
+
+    if (addr.ss_family == AF_INET) {
+        struct sockaddr_in *s = (struct sockaddr_in *)&addr;
+        inet_ntop(AF_INET, &(s->sin_addr), ip_str, sizeof(ip_str));
+        fprintf(stderr, "Connected %s:%d on socket %d\n", ip_str, ntohs(s->sin_port), cl->sockfd);
+    } else if (addr.ss_family == AF_INET6) {
+        struct sockaddr_in6 *s = (struct sockaddr_in6 *)&addr;
+        inet_ntop(AF_INET6, &(s->sin6_addr), ip_str, sizeof(ip_str));
+        if (strcmp(ip_str, "::1") == 0) {
+            fprintf(stderr, "Client %s:%d (localhost) connected on socket %d\n", ip_str, ntohs(s->sin6_port), cl->sockfd);
+        } else {
+            fprintf(stderr, "Client %s:%d connected on socket %d\n", ip_str, ntohs(s->sin6_port), cl->sockfd);
+        }
+    } else {
+        fprintf(stderr, "Unknown address family\n");
+    }
 }
 
 /*
@@ -300,8 +328,8 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
     send_rpc_message(cl->sockfd, new_msg);
 
     // free the message
-    free_rpc_message(msg);
-    free_rpc_message(new_msg);
+    free_rpc_message(msg, rpc_data_free);
+    free_rpc_message(new_msg, rpc_data_free);
 }
 
 /*
@@ -414,11 +442,15 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
     }
 
     // check if the handler exists
+    rpc_handle *h = NULL;
     if (reply->operation == REPLY && reply->data->data1 == TRUE) {
-        return new_rpc_handle(name);
+        h = new_rpc_handle(name);
     }
 
-    return NULL;
+    // free the reply
+    free_rpc_message(reply, rpc_data_free);
+
+    return h;
 }
 
 rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
@@ -446,6 +478,9 @@ rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
         return reply->data;
     }
 
+    // free the reply but not the data
+    free_rpc_message(reply, NULL);
+
     return NULL;
 }
 
@@ -458,6 +493,9 @@ void rpc_close_client(rpc_client *cl) {
 
     // close the socket
     close(cl->sockfd);
+
+    // free the address
+    free(cl->addr);
 
     // free the client state
     free(cl);
@@ -642,8 +680,10 @@ rpc_message *request(int sockfd, rpc_message *msg) {
 
     // send message
     if (send_rpc_message(sockfd, msg) == FAILED) {
+        free_rpc_message(msg, rpc_data_free);
         return NULL;
     }
+    free_rpc_message(msg, rpc_data_free);
 
     // return response
     return receive_rpc_message(sockfd);
@@ -865,23 +905,15 @@ void free_rpc_handle(rpc_handle *handle) {
 }
 
 /*
- * Free an RPC data.
- *
- * @param data The RPC data to free.
- */
-void free_rpc_data(rpc_data *data) {
-    free(data->data2);
-    free(data);
-}
-
-/*
  * Free an RPC message.
  *
  * @param message The RPC message to free.
  */
-void free_rpc_message(rpc_message *message) {
+void free_rpc_message(rpc_message *message, void (*free_data)(rpc_data *)) {
     free(message->function_name);
-    free_rpc_data(message->data);
+    if (free_data) {
+        free_data(message->data);
+    }
     free(message);
 }
 
