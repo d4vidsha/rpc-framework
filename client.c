@@ -33,6 +33,7 @@ int main(int argc, char *argv[]) {
             .data1 = left_operand, .data2_len = 1, .data2 = &right_operand};
 
         /* Call and receive response */
+        printf("Calling add2 with %d and %d\n", left_operand, right_operand);
         rpc_data *response_data = rpc_call(state, handle_add2, &request_data);
         if (response_data == NULL) {
             fprintf(stderr, "Function call of add2 failed\n");
@@ -47,6 +48,8 @@ int main(int argc, char *argv[]) {
                response_data->data1);
         rpc_data_free(response_data);
     }
+
+    printf("We are done!\n");
 
 cleanup:
     if (handle_add2 != NULL) {

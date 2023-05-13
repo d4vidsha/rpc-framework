@@ -13,6 +13,7 @@
 #include "rpc.h"
 #include "config.h"
 #include "hashtable.h"
+#include "linkedlist.h"
 #include "sockets.h"
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -37,6 +38,11 @@ static void sig_handler(int _) {
     write(STDOUT_FILENO, msg, sizeof(msg) - 1);
 }
 
+typedef struct {
+    int sockfd;
+    struct sockaddr_in client_addr;
+    socklen_t client_addr_size;
+} rpc_client_state;
 
 typedef struct {
     int request_id;
@@ -49,7 +55,8 @@ typedef struct {
     rpc_data *data;
 } rpc_message;
 
-void handle_request(rpc_server *srv, int newsockfd);
+void handle_request(rpc_server *srv, rpc_client_state *cl);
+void handle_all_requests(rpc_server *srv, rpc_client_state *cl);
 void rpc_shutdown_server(rpc_server *srv);
 
 void print_handler(void *data);
@@ -89,6 +96,7 @@ struct rpc_server {
     int port;
     int sockfd;
     hashtable_t *handlers;
+    list_t *clients;
 };
 
 rpc_server *rpc_init_server(int port) {
@@ -106,6 +114,7 @@ rpc_server *rpc_init_server(int port) {
     srv->port = port;
     srv->sockfd = create_listening_socket(sport);
     srv->handlers = hashtable_create(HASHTABLE_SIZE);
+    srv->clients = create_empty_list();
 
     return srv;
 }
@@ -157,25 +166,30 @@ void rpc_serve_all(rpc_server *srv) {
             exit(EXIT_FAILURE);
         }
 
+        // store client information
+        rpc_client_state *cl = (rpc_client_state *)malloc(sizeof(*cl));
+        assert(cl);
+        cl->client_addr_size = sizeof(cl->client_addr);
+
         // accept a connection
-        struct sockaddr_in client_addr;
-        socklen_t client_addr_size = sizeof client_addr;
-        int newsockfd =
-            accept(srv->sockfd, (struct sockaddr *)&client_addr, &client_addr_size);
-        if (newsockfd < 0) {
+        cl->sockfd = accept(srv->sockfd, (struct sockaddr *)&cl->client_addr, &cl->client_addr_size);
+        if (cl->sockfd < 0) {
             perror("accept");
             exit(EXIT_FAILURE);
         }
 
+        // add to list of clients
+        append(srv->clients, cl);
+
         // print the client's IP address
-        getpeername(newsockfd, (struct sockaddr *)&client_addr, &client_addr_size);
+        getpeername(cl->sockfd, (struct sockaddr *)&cl->client_addr, &cl->client_addr_size);
         char ipstr[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &client_addr.sin_addr, ipstr, sizeof ipstr);
-        int port = ntohs(client_addr.sin_port);
-        fprintf(stderr, "Received connection from %s:%d on socket %d\n", ipstr, port, newsockfd);
+        inet_ntop(AF_INET, &cl->client_addr.sin_addr, ipstr, sizeof ipstr);
+        int port = ntohs(cl->client_addr.sin_port);
+        fprintf(stderr, "Received connection from %s:%d on socket %d\n", ipstr, port, cl->sockfd);
 
         // handle requests from the client
-        handle_request(srv, newsockfd);
+        handle_all_requests(srv, cl);
     }
 
     printf("\nShutting down...\n");
@@ -184,20 +198,35 @@ void rpc_serve_all(rpc_server *srv) {
 }
 
 /*
+ * Handle all requests from the client.
+ * 
+ * @param srv The server state.
+ * @param cl The client state.
+ * @param client_addr The client's address.
+ */
+void handle_all_requests(rpc_server *srv, rpc_client_state *cl) {
+    while (keep_running && cl->sockfd != -1) {
+        fprintf(stderr, "===================================================\n");
+        fprintf(stderr, "Waiting for request...\n");
+        handle_request(srv, cl);
+    }
+}
+
+/*
  * Handle a request from the client.
  * 
  * @param srv The server state.
- * @param newsockfd The socket file descriptor for the client.
+ * @param cl The client state.
  */
-void handle_request(rpc_server *srv, int newsockfd) {
+void handle_request(rpc_server *srv, rpc_client_state *cl) {
     // receive rpc_message from the client and process it
-    rpc_message *msg = receive_rpc_message(newsockfd);
+    rpc_message *msg = receive_rpc_message(cl->sockfd);
     rpc_message *new_msg = NULL;
     switch (msg->operation) {
 
         case FIND:
-            printf("Received FIND request\n");
-            printf("Looking for handler: %s\n", msg->function_name);
+            fprintf(stderr, "Received FIND request\n");
+            fprintf(stderr, "Looking for handler: %s\n", msg->function_name);
 
             // get the handler from the hashtable
             rpc_handler h = hashtable_lookup(srv->handlers, msg->function_name);
@@ -213,14 +242,31 @@ void handle_request(rpc_server *srv, int newsockfd) {
             break;
 
         case CALL:
+            fprintf(stderr, "Received CALL request\n");
+            fprintf(stderr, "Calling handler: %s\n", msg->function_name);
+
+            // get the handler from the hashtable
+            rpc_handler handler = hashtable_lookup(srv->handlers, msg->function_name);
+
+            // run the handler
+            rpc_data *data = handler(msg->data);
+
+            // create a new message to send back to the client
+            new_msg = new_rpc_message(321, REPLY, msg->function_name, data);
+            break;
 
         case REPLY:
+            fprintf(stderr, "Received REPLY request\n");
+            fprintf(stderr, "Doing nothing...\n");
+            break;
 
         default:
+            fprintf(stderr, "Received unknown request\n");
+            fprintf(stderr, "Doing nothing...\n");
             break;
     }
     // send the message to the server
-    send_rpc_message(newsockfd, new_msg);
+    send_rpc_message(cl->sockfd, new_msg);
 }
 
 /*
@@ -320,11 +366,35 @@ rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
     }
 
     // use socket to send a message to the server
+    rpc_message *reply = request(cl->sockfd, 
+                                 new_rpc_message(
+                                    123, 
+                                    CALL, 
+                                    new_string(h->name), 
+                                    payload
+                                  )
+                                );
+
+    // send the reply back to the client
+    if (reply->operation == REPLY) {
+        return reply->data;
+    }
 
     return NULL;
 }
 
 void rpc_close_client(rpc_client *cl) {
+
+    // check if the client is NULL
+    if (cl == NULL) {
+        return;
+    }
+
+    // close the socket
+    close(cl->sockfd);
+
+    // free the client state
+    free(cl);
 
     return;
 }
