@@ -8,16 +8,16 @@
 #include "protocol.h"
 #include "config.h"
 #include <arpa/inet.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <signal.h>
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <netdb.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/select.h>
+#include <unistd.h>
 
 int write_bytes(int sockfd, const unsigned char *bytes, int size) {
     fprintf(stderr, "Writing %d bytes\n", size);
@@ -94,7 +94,10 @@ int send_rpc_message(int sockfd, rpc_message *msg) {
     }
     n = deserialise_int(&size_ptr);
     if (n != size) {
-        fprintf(stderr, "Error: sent %d bytes but received %d bytes before sending message\n", size, n);
+        fprintf(stderr,
+                "Error: sent %d bytes but received %d bytes before sending "
+                "message\n",
+                size, n);
         exit(EXIT_FAILURE);
     } else {
         fprintf(stderr, "Looks good, sending payload...\n");
@@ -188,7 +191,7 @@ char *deserialise_string(unsigned char **buffer_ptr) {
 unsigned char *serialise_rpc_data(unsigned char *buffer, const rpc_data *data) {
     buffer = serialise_int(buffer, data->data1);
     buffer = serialise_size_t(buffer, data->data2_len);
-    
+
     // optionally serialise data2
     if (data->data2_len > 0 && data->data2 != NULL) {
         memcpy(buffer, data->data2, data->data2_len);
@@ -199,16 +202,14 @@ unsigned char *serialise_rpc_data(unsigned char *buffer, const rpc_data *data) {
 }
 
 rpc_data *deserialise_rpc_data(unsigned char **buffer_ptr) {
-    rpc_data *data = new_rpc_data(
-        deserialise_int(buffer_ptr),
-        deserialise_size_t(buffer_ptr),
-        *buffer_ptr
-    );
+    rpc_data *data = new_rpc_data(deserialise_int(buffer_ptr),
+                                  deserialise_size_t(buffer_ptr), *buffer_ptr);
     *buffer_ptr += data->data2_len;
     return data;
 }
 
-unsigned char *serialise_rpc_message(unsigned char *buffer, const rpc_message *message) {
+unsigned char *serialise_rpc_message(unsigned char *buffer,
+                                     const rpc_message *message) {
     buffer = serialise_int(buffer, message->request_id);
     buffer = serialise_int(buffer, message->operation);
     buffer = serialise_string(buffer, message->function_name);
@@ -218,11 +219,8 @@ unsigned char *serialise_rpc_message(unsigned char *buffer, const rpc_message *m
 
 rpc_message *deserialise_rpc_message(unsigned char **buffer_ptr) {
     rpc_message *message = new_rpc_message(
-        deserialise_int(buffer_ptr),
-        deserialise_int(buffer_ptr),
-        deserialise_string(buffer_ptr),
-        deserialise_rpc_data(buffer_ptr)
-    );
+        deserialise_int(buffer_ptr), deserialise_int(buffer_ptr),
+        deserialise_string(buffer_ptr), deserialise_rpc_data(buffer_ptr));
     return message;
 }
 
@@ -248,7 +246,8 @@ rpc_data *new_rpc_data(int data1, size_t data2_len, void *data2) {
     return data;
 }
 
-rpc_message *new_rpc_message(int request_id, int operation, char *function_name, rpc_data *data) {
+rpc_message *new_rpc_message(int request_id, int operation, char *function_name,
+                             rpc_data *data) {
     rpc_message *message = (rpc_message *)malloc(sizeof(*message));
     assert(message);
     message->request_id = request_id;

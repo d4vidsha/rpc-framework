@@ -9,13 +9,13 @@
 #include "sockets.h"
 #include "config.h"
 #include <arpa/inet.h>
+#include <assert.h>
 #include <netdb.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <signal.h>
-#include <assert.h>
 
 int create_listening_socket(char *port) {
     int re, s, sockfd;
@@ -73,7 +73,8 @@ int create_connection_socket(char *addr, char *port) {
     }
 
     // create socket
-    sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+    sockfd = socket(servinfo->ai_family, servinfo->ai_socktype,
+                    servinfo->ai_protocol);
     if (sockfd < 0) {
         perror("socket");
         exit(EXIT_FAILURE);

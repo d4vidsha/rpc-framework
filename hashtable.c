@@ -75,7 +75,8 @@ void *hashtable_lookup(hashtable_t *hashtable, const char *key) {
     return NULL;
 }
 
-void hashtable_remove(hashtable_t *hashtable, const char *key, void (*free_data)(void *)) {
+void hashtable_remove(hashtable_t *hashtable, const char *key,
+                      void (*free_data)(void *)) {
     assert(hashtable && key);
     unsigned long index = hash(key) % hashtable->size;
     item_t *curr = hashtable->table[index], *prev = NULL;

@@ -14,19 +14,19 @@
 #include "config.h"
 #include "hashtable.h"
 #include "linkedlist.h"
-#include "sockets.h"
 #include "protocol.h"
+#include "sockets.h"
 #include <arpa/inet.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <signal.h>
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <netdb.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/select.h>
+#include <unistd.h>
 
 static volatile sig_atomic_t keep_running = 1;
 
@@ -34,7 +34,7 @@ static volatile sig_atomic_t keep_running = 1;
  * Int handler for SIGINT.
  */
 static void sig_handler(int _) {
-    (void) _;
+    (void)_;
     keep_running = 0;
 }
 
@@ -44,10 +44,9 @@ typedef struct {
     socklen_t client_addr_size;
 } rpc_client_state;
 
-
 /*
  * Handle a request from the client.
- * 
+ *
  * @param srv The server state.
  * @param cl The client state.
  */
@@ -55,7 +54,7 @@ void handle_request(rpc_server *srv, rpc_client_state *cl);
 
 /*
  * Handle all requests from the client.
- * 
+ *
  * @param srv The server state.
  * @param cl The client state.
  * @param client_addr The client's address.
@@ -64,7 +63,7 @@ void handle_all_requests(rpc_server *srv, rpc_client_state *cl);
 
 /*
  * Shuts down the server and frees the server state.
- * 
+ *
  * @param srv The server state.
  */
 void rpc_shutdown_server(rpc_server *srv);
@@ -93,7 +92,7 @@ void print_handler(void *data);
 
 /*
  * Create a new RPC handle.
- * 
+ *
  * @param name: name of RPC handle
  * @return new RPC handle.
  */
@@ -168,7 +167,7 @@ void rpc_serve_all(rpc_server *srv) {
     }
 
     // handle SIGINT
-    struct sigaction act = { .sa_handler = sig_handler };
+    struct sigaction act = {.sa_handler = sig_handler};
     sigaction(SIGINT, &act, NULL);
 
     // keep running until SIGINT is received
@@ -186,14 +185,15 @@ void rpc_serve_all(rpc_server *srv) {
         fd_set readfds;
         FD_ZERO(&readfds);
         FD_SET(srv->sockfd, &readfds);
-        struct timeval tv = { .tv_sec = 0, .tv_usec = 0 };
+        struct timeval tv = {.tv_sec = 0, .tv_usec = 0};
         int retval = select(srv->sockfd + 1, &readfds, NULL, NULL, &tv);
         if (retval == FAILED) {
             perror("select");
             exit(EXIT_FAILURE);
         } else if (retval) {
             // connection request received
-            sockfd = accept(srv->sockfd, (struct sockaddr *)&client_addr, &client_addr_size);
+            sockfd = accept(srv->sockfd, (struct sockaddr *)&client_addr,
+                            &client_addr_size);
             if (sockfd < 0) {
                 perror("accept");
                 exit(EXIT_FAILURE);
@@ -238,14 +238,17 @@ void print_client_info(rpc_client_state *cl) {
     if (addr.ss_family == AF_INET) {
         struct sockaddr_in *s = (struct sockaddr_in *)&addr;
         inet_ntop(AF_INET, &(s->sin_addr), ip_str, sizeof(ip_str));
-        fprintf(stderr, "Connected %s:%d on socket %d\n", ip_str, ntohs(s->sin_port), cl->sockfd);
+        fprintf(stderr, "Connected %s:%d on socket %d\n", ip_str,
+                ntohs(s->sin_port), cl->sockfd);
     } else if (addr.ss_family == AF_INET6) {
         struct sockaddr_in6 *s = (struct sockaddr_in6 *)&addr;
         inet_ntop(AF_INET6, &(s->sin6_addr), ip_str, sizeof(ip_str));
         if (strcmp(ip_str, "::1") == 0) {
-            fprintf(stderr, "Client %s:%d (localhost) connected on socket %d\n", ip_str, ntohs(s->sin6_port), cl->sockfd);
+            fprintf(stderr, "Client %s:%d (localhost) connected on socket %d\n",
+                    ip_str, ntohs(s->sin6_port), cl->sockfd);
         } else {
-            fprintf(stderr, "Client %s:%d connected on socket %d\n", ip_str, ntohs(s->sin6_port), cl->sockfd);
+            fprintf(stderr, "Client %s:%d connected on socket %d\n", ip_str,
+                    ntohs(s->sin6_port), cl->sockfd);
         }
     } else {
         fprintf(stderr, "Unknown address family\n");
@@ -273,51 +276,53 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
         fprintf(stderr, "Client disconnected\n");
         return;
     }
-    
 
     rpc_message *new_msg = NULL;
     switch (msg->operation) {
 
-        case FIND:
-            fprintf(stderr, "Received FIND request\n");
-            fprintf(stderr, "Looking for handler: %s\n", msg->function_name);
+    case FIND:
+        fprintf(stderr, "Received FIND request\n");
+        fprintf(stderr, "Looking for handler: %s\n", msg->function_name);
 
-            // get the handler from the hashtable
-            rpc_handler h = hashtable_lookup(srv->handlers, msg->function_name);
-            
-            // check if the handler exists
-            int exists = h != NULL;
-            if (exists) {
-                fprintf(stderr, "Handler found\n");
-            } else {
-                fprintf(stderr, "Handler not found\n");
-            }
-            new_msg = new_rpc_message(321, REPLY, new_string(msg->function_name), new_rpc_data(exists, 0, NULL));
-            break;
+        // get the handler from the hashtable
+        rpc_handler h = hashtable_lookup(srv->handlers, msg->function_name);
 
-        case CALL:
-            fprintf(stderr, "Received CALL request\n");
-            fprintf(stderr, "Calling handler: %s\n", msg->function_name);
+        // check if the handler exists
+        int exists = h != NULL;
+        if (exists) {
+            fprintf(stderr, "Handler found\n");
+        } else {
+            fprintf(stderr, "Handler not found\n");
+        }
+        new_msg = new_rpc_message(321, REPLY, new_string(msg->function_name),
+                                  new_rpc_data(exists, 0, NULL));
+        break;
 
-            // get the handler from the hashtable
-            rpc_handler handler = hashtable_lookup(srv->handlers, msg->function_name);
+    case CALL:
+        fprintf(stderr, "Received CALL request\n");
+        fprintf(stderr, "Calling handler: %s\n", msg->function_name);
 
-            // run the handler
-            rpc_data *data = handler(msg->data);
+        // get the handler from the hashtable
+        rpc_handler handler =
+            hashtable_lookup(srv->handlers, msg->function_name);
 
-            // create a new message to send back to the client
-            new_msg = new_rpc_message(321, REPLY, new_string(msg->function_name), data);
-            break;
+        // run the handler
+        rpc_data *data = handler(msg->data);
 
-        case REPLY:
-            fprintf(stderr, "Received REPLY request\n");
-            fprintf(stderr, "Doing nothing...\n");
-            break;
+        // create a new message to send back to the client
+        new_msg =
+            new_rpc_message(321, REPLY, new_string(msg->function_name), data);
+        break;
 
-        default:
-            fprintf(stderr, "Received unknown request\n");
-            fprintf(stderr, "Doing nothing...\n");
-            break;
+    case REPLY:
+        fprintf(stderr, "Received REPLY request\n");
+        fprintf(stderr, "Doing nothing...\n");
+        break;
+
+    default:
+        fprintf(stderr, "Received unknown request\n");
+        fprintf(stderr, "Doing nothing...\n");
+        break;
     }
     // send the message to the server
     send_rpc_message(cl->sockfd, new_msg);
@@ -384,7 +389,6 @@ rpc_client *rpc_init_client(char *addr, int port) {
     cl = (rpc_client *)malloc(sizeof(*cl));
     assert(cl);
 
-
     // add the address and port to the client state
     cl->addr = new_string(addr);
     cl->port = port;
@@ -411,14 +415,8 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
 
     // send message to the server and wait for a reply
     rpc_data *data = new_rpc_data(0, 0, NULL);
-    rpc_message *reply = request(cl->sockfd, 
-                                 new_rpc_message(
-                                    123, 
-                                    FIND, 
-                                    new_string(name), 
-                                    data
-                                  )
-                                );
+    rpc_message *reply =
+        request(cl->sockfd, new_rpc_message(123, FIND, new_string(name), data));
     rpc_data_free(data);
     if (reply == NULL) {
         return NULL;
@@ -445,14 +443,8 @@ rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
     }
 
     // use socket to send a message to the server
-    rpc_message *reply = request(cl->sockfd, 
-                                 new_rpc_message(
-                                    123, 
-                                    CALL, 
-                                    new_string(h->name), 
-                                    payload
-                                  )
-                                );
+    rpc_message *reply = request(
+        cl->sockfd, new_rpc_message(123, CALL, new_string(h->name), payload));
     if (reply == NULL) {
         return NULL;
     }
