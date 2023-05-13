@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <sys/select.h>
 
 static volatile sig_atomic_t keep_running = 1;
 
@@ -165,17 +166,34 @@ void rpc_serve_all(rpc_server *srv) {
             exit(EXIT_FAILURE);
         }
 
+        // accept a connection non-blocking using select
+        int sockfd;
+        struct sockaddr_in client_addr;
+        socklen_t client_addr_size = sizeof(client_addr);
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(srv->sockfd, &readfds);
+        struct timeval tv = { .tv_sec = 0, .tv_usec = 0 };
+        int retval = select(srv->sockfd + 1, &readfds, NULL, NULL, &tv);
+        if (retval == -1) {
+            perror("select()");
+            exit(EXIT_FAILURE);
+        } else if (retval) {
+            sockfd = accept(srv->sockfd, (struct sockaddr *)&client_addr, &client_addr_size);
+            if (sockfd < 0) {
+                perror("accept");
+                exit(EXIT_FAILURE);
+            }
+        } else {
+            continue;
+        }
+
         // store client information
         rpc_client_state *cl = (rpc_client_state *)malloc(sizeof(*cl));
         assert(cl);
-        cl->client_addr_size = sizeof(cl->client_addr);
-
-        // accept a connection
-        cl->sockfd = accept(srv->sockfd, (struct sockaddr *)&cl->client_addr, &cl->client_addr_size);
-        if (cl->sockfd < 0) {
-            perror("accept");
-            exit(EXIT_FAILURE);
-        }
+        cl->sockfd = sockfd;
+        cl->client_addr = client_addr;
+        cl->client_addr_size = client_addr_size;
 
         // add to list of clients
         append(srv->clients, cl);
@@ -319,7 +337,7 @@ void rpc_shutdown_server(rpc_server *srv) {
     close(srv->sockfd);
 
     // free the hashtable
-    hashtable_destroy(srv->handlers, free);
+    hashtable_destroy(srv->handlers, NULL);
 
     // free the list of clients
     free_list(srv->clients, free);
