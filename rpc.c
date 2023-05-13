@@ -175,16 +175,18 @@ void rpc_serve_all(rpc_server *srv) {
         FD_SET(srv->sockfd, &readfds);
         struct timeval tv = { .tv_sec = 0, .tv_usec = 0 };
         int retval = select(srv->sockfd + 1, &readfds, NULL, NULL, &tv);
-        if (retval == -1) {
-            perror("select()");
+        if (retval == FAILED) {
+            perror("select");
             exit(EXIT_FAILURE);
         } else if (retval) {
+            // connection request received
             sockfd = accept(srv->sockfd, (struct sockaddr *)&client_addr, &client_addr_size);
             if (sockfd < 0) {
                 perror("accept");
                 exit(EXIT_FAILURE);
             }
         } else {
+            // no connection requests received
             continue;
         }
 
