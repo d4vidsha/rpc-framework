@@ -81,7 +81,7 @@ rpc_message *deserialise_rpc_message(unsigned char **buffer_ptr);
 
 char *new_string(const char *value);
 rpc_handle *new_rpc_handle(const char *name);
-void free_rpc_handle(rpc_handle *handle);
+void free_rpc_handle_internal(void *handle);
 void print_rpc_handle(rpc_handle *handle);
 rpc_data *new_rpc_data(int data1, size_t data2_len, void *data2);
 void print_rpc_message(rpc_message *message);
@@ -252,7 +252,7 @@ void print_client_info(rpc_client_state *cl) {
  */
 void handle_all_requests(rpc_server *srv, rpc_client_state *cl) {
     while (!is_socket_closed(cl->sockfd)) {
-        fprintf(stderr, "===================================================\n");
+        fprintf(stderr, "==================================================\n");
         fprintf(stderr, "Waiting for request...\n");
         handle_request(srv, cl);
     }
@@ -380,6 +380,7 @@ struct rpc_client {
     char *addr;
     int port;
     int sockfd;
+    list_t *handles;
 };
 
 struct rpc_handle {
@@ -413,6 +414,9 @@ rpc_client *rpc_init_client(char *addr, int port) {
     // create a socket
     cl->sockfd = create_connection_socket(addr, sport);
 
+    // create a list of handles
+    cl->handles = create_empty_list();
+
     return cl;
 }
 
@@ -424,18 +428,16 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
     }
 
     // send message to the server and wait for a reply
+    rpc_data *data = new_rpc_data(0, 0, NULL);
     rpc_message *reply = request(cl->sockfd, 
                                  new_rpc_message(
                                     123, 
                                     FIND, 
                                     new_string(name), 
-                                    new_rpc_data(
-                                        0, 
-                                        0, 
-                                        NULL
-                                    )
+                                    data
                                   )
                                 );
+    rpc_data_free(data);
     if (reply == NULL) {
         return NULL;
     }
@@ -444,6 +446,7 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
     rpc_handle *h = NULL;
     if (reply->operation == REPLY && reply->data->data1 == TRUE) {
         h = new_rpc_handle(name);
+        append(cl->handles, h);
     }
 
     // free the reply
@@ -495,6 +498,9 @@ void rpc_close_client(rpc_client *cl) {
 
     // free the address
     free(cl->addr);
+
+    // free the list of handles's internal data
+    free_list(cl->handles, free_rpc_handle_internal);
 
     // free the client state
     free(cl);
@@ -679,10 +685,10 @@ rpc_message *request(int sockfd, rpc_message *msg) {
 
     // send message
     if (send_rpc_message(sockfd, msg) == FAILED) {
-        free_rpc_message(msg, rpc_data_free);
+        free_rpc_message(msg, NULL);
         return NULL;
     }
-    free_rpc_message(msg, rpc_data_free);
+    free_rpc_message(msg, NULL);
 
     // return response
     return receive_rpc_message(sockfd);
@@ -898,9 +904,9 @@ rpc_message *new_rpc_message(int request_id, int operation, char *function_name,
  *
  * @param handle The RPC handle to free.
  */
-void free_rpc_handle(rpc_handle *handle) {
-    free(handle->name);
-    free(handle);
+void free_rpc_handle_internal(void *handle) {
+    rpc_handle *h = (rpc_handle *)handle;
+    free(h->name);
 }
 
 /*
