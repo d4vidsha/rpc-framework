@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <assert.h>
+#include <ctype.h>
 
 static volatile sig_atomic_t keep_running = 1;
 
@@ -47,8 +48,10 @@ typedef struct {
 
 void print_handler(void *data);
 rpc_message *request(int sockfd, rpc_message *msg);
-int send_message(int sockfd, const unsigned char *msg, int size);
-int receive_message(int sockfd, unsigned char *buffer, int size);
+int write_bytes(int sockfd, const unsigned char *msg, int size);
+int read_bytes(int sockfd, unsigned char *buffer, int size);
+void send_rpc_message(int sockfd, rpc_message *msg);
+rpc_message *receive_rpc_message(int sockfd);
 
 unsigned char *serialise_int(unsigned char *buffer, int value);
 int deserialise_int(unsigned char **buffer_ptr);
@@ -62,6 +65,10 @@ unsigned char *serialise_rpc_message(unsigned char *buffer, const rpc_message *m
 rpc_message *deserialise_rpc_message(unsigned char **buffer_ptr);
 void print_serialised_bytes(unsigned char *buffer, size_t len);
 
+char *new_string(const char *value);
+rpc_handle *new_rpc_handle(const char *name);
+void free_rpc_handle(rpc_handle *handle);
+void print_rpc_handle(rpc_handle *handle);
 rpc_data *new_rpc_data(int data1, size_t data2_len, void *data2);
 void free_rpc_data(rpc_data *data);
 void print_rpc_message(rpc_message *message);
@@ -99,7 +106,7 @@ rpc_server *rpc_init_server(int port) {
 
 int rpc_register(rpc_server *srv, char *name, rpc_handler handler) {
 
-    fprintf(stderr, "Added handler for %s\n", name);
+    fprintf(stderr, "Added %s handler\n", name);
 
     // check if any of the parameters are NULL
     if (srv == NULL || name == NULL || handler == NULL) {
@@ -165,12 +172,14 @@ void rpc_serve_all(rpc_server *srv) {
 
 
         // read characters from the connection, then process
-        unsigned char *buffer = (unsigned char *)malloc(sizeof(*buffer) * BUFSIZ);
-        receive_message(newsockfd, buffer, BUFSIZ);
+        unsigned char *buffer, *ptr;
+        buffer = (unsigned char *)malloc(sizeof(*buffer) * BUFSIZ);
+        read_bytes(newsockfd, buffer, BUFSIZ);
+        ptr = buffer;
 
         // deserialise the message
-        rpc_message *msg = deserialise_rpc_message(buffer);
-        printf("Received message with request_id %d, operation %d, handle %s, data %d\n", msg->request_id, msg->operation, msg->function_name, msg->data->data1);
+        rpc_message *msg = deserialise_rpc_message(&ptr);
+        print_rpc_message(msg);
 
         rpc_message *new_msg;
         switch (msg->operation) {
@@ -189,7 +198,7 @@ void rpc_serve_all(rpc_server *srv) {
                 } else {
                     fprintf(stderr, "Found handler for %s\n", msg->function_name);
                 }
-                new_msg = new_rpc_message(0, REPLY, msg->function_name, new_rpc_data(exists, 0, NULL));
+                new_msg = new_rpc_message(321, REPLY, msg->function_name, new_rpc_data(exists, 0, NULL));
                 break;
 
             case CALL:
@@ -202,11 +211,14 @@ void rpc_serve_all(rpc_server *srv) {
 
         // send the message to the server
         // convert message to serialised form
-        unsigned char *newbuf = (unsigned char *)malloc(sizeof(*newbuf) * BUFSIZ);
-        serialise_rpc_message(newbuf, new_msg);
+        unsigned char *newbuf;
+        newbuf = (unsigned char *)malloc(sizeof(*newbuf) * BUFSIZ);
+        ptr = newbuf;
+
+        ptr = serialise_rpc_message(newbuf, new_msg);
 
         // send message
-        send_message(newsockfd, newbuf, BUFSIZ);
+        write_bytes(newsockfd, newbuf, ptr - newbuf);
 
         // free memory
         free(buffer);
@@ -228,7 +240,6 @@ struct rpc_client {
 
 struct rpc_handle {
     char *name;
-    size_t size;
 };
 
 
@@ -248,9 +259,7 @@ rpc_client *rpc_init_client(char *addr, int port) {
 
 
     // add the address and port to the client state
-    cl->addr = (char *)malloc(sizeof(char) * (strlen(addr) + 1));
-    assert(cl->addr);
-    strcpy(cl->addr, addr);
+    cl->addr = new_string(addr);
     cl->port = port;
 
     // convert port from int to a string
@@ -270,24 +279,23 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
         return NULL;
     }
 
-    rpc_message *msg = new_rpc_message(0, FIND, name, NULL);
-
     // send message to the server and wait for a reply
-    rpc_message *reply = request(cl->sockfd, msg);
+    rpc_message *reply = request(cl->sockfd, 
+                                 new_rpc_message(
+                                    123, 
+                                    FIND, 
+                                    new_string(name), 
+                                    new_rpc_data(
+                                        0, 
+                                        0, 
+                                        NULL
+                                    )
+                                  )
+                                );
 
     // check if the handler exists
-    if (reply->operation == REPLY) {
-        if (reply->data->data1 == TRUE) {
-            // create a new rpc_handle
-            rpc_handle *h;
-            h = (rpc_handle *)malloc(sizeof(*h));
-            assert(h);
-            h->name = (char *)malloc(sizeof(char) * (strlen(name) + 1));
-            assert(h->name);
-            strcpy(h->name, name);
-            h->size = strlen(name) + 1;
-            return h;
-        }
+    if (reply->operation == REPLY && reply->data->data1 == TRUE) {
+        return new_rpc_handle(name);
     }
 
     return NULL;
@@ -331,13 +339,14 @@ void print_handler(void *data) {
 }
 
 /*
- * Send a message through a socket.
- * @param sockfd The socket to send the message to.
- * @param msg The message to send.
- * @return The number of bytes sent.
+ * Write a string of bytes to a socket.
+ *
+ * @param sockfd The socket to write to.
+ * @param bytes The bytes to write.
+ * @param size The number of bytes to write.
  */
-int send_message(int sockfd, const unsigned char *msg, int size) {
-    int n = write(sockfd, msg, size);
+int write_bytes(int sockfd, const unsigned char *bytes, int size) {
+    int n = write(sockfd, bytes, size);
     if (n < 0) {
         perror("write");
         exit(EXIT_FAILURE);
@@ -346,18 +355,53 @@ int send_message(int sockfd, const unsigned char *msg, int size) {
 }
 
 /*
- * Receive a message through a socket.
- * @param sockfd The socket to receive the message from.
- * @param buffer The buffer to store the message in.
- * @return The number of bytes received.
+ * Read a string of bytes from a socket.
+ *
+ * @param sockfd The socket to read from.
+ * @param buffer The buffer to read into.
+ * @param size The number of bytes to read.
  */
-int receive_message(int sockfd, unsigned char *buffer, int size) {
+int read_bytes(int sockfd, unsigned char *buffer, int size) {
     int n = read(sockfd, buffer, size);
     if (n < 0) {
         perror("read");
         exit(EXIT_FAILURE);
     }
     return n;
+}
+
+/*
+ * Send an rpc_message through a socket.
+ * 
+ * @param sockfd The socket to send the message to.
+ * @param msg The message to send.
+ */
+void send_rpc_message(int sockfd, rpc_message *msg) {
+
+    // convert message to serialised form
+    unsigned char buffer[BUFSIZ], *ptr;
+    ptr = serialise_rpc_message(buffer, msg);
+
+    // send message
+    write_bytes(sockfd, buffer, ptr - buffer);
+}
+
+/*
+ * Receive an rpc_message from a socket.
+ * 
+ * @param sockfd The socket to receive the message from.
+ * @return The message received.
+ */
+rpc_message *receive_rpc_message(int sockfd) {
+
+    // receive message
+    unsigned char buffer[BUFSIZ], *ptr = buffer;
+    read_bytes(sockfd, buffer, BUFSIZ); // TODO: not good here, should be dynamic size
+
+    // deserialise message
+    rpc_message *msg = deserialise_rpc_message(&ptr);
+
+    return msg;
 }
 
 /*
@@ -369,21 +413,11 @@ int receive_message(int sockfd, unsigned char *buffer, int size) {
  */
 rpc_message *request(int sockfd, rpc_message *msg) {
 
-    // convert message to serialised form
-    unsigned char *buffer = (unsigned char *)malloc(sizeof(*buffer) * BUFSIZ);
-    serialise_rpc_message(buffer, msg);
-
     // send message
-    send_message(sockfd, buffer, BUFSIZ);
+    send_rpc_message(sockfd, msg);
 
     // receive response
-    receive_message(sockfd, buffer, BUFSIZ);
-
-    // deserialise response
-    rpc_message *response = deserialise_rpc_message(buffer);
-
-    // free memory
-    free(buffer);
+    rpc_message *response = receive_rpc_message(sockfd);
 
     return response;
 }
@@ -568,6 +602,19 @@ char *new_string(const char *value) {
 }
 
 /*
+ * Create a new RPC handle.
+ * 
+ * @param name: name of RPC handle
+ * @return new RPC handle.
+ */
+rpc_handle *new_rpc_handle(const char *name) {
+    rpc_handle *handle = (rpc_handle *)malloc(sizeof(*handle));
+    assert(handle);
+    handle->name = new_string(name);
+    return handle;
+}
+
+/*
  * Create a new RPC data.
  *
  * @param data1 The first data value.
@@ -610,6 +657,16 @@ rpc_message *new_rpc_message(int request_id, int operation, char *function_name,
 }
 
 /*
+ * Free an RPC handle.
+ *
+ * @param handle The RPC handle to free.
+ */
+void free_rpc_handle(rpc_handle *handle) {
+    free(handle->name);
+    free(handle);
+}
+
+/*
  * Free an RPC data.
  *
  * @param data The RPC data to free.
@@ -628,6 +685,15 @@ void free_rpc_message(rpc_message *message) {
     free(message->function_name);
     free_rpc_data(message->data);
     free(message);
+}
+
+/*
+ * Print an RPC handle.
+ *
+ * @param handle The RPC handle to print.
+ */
+void print_rpc_handle(rpc_handle *handle) {
+    printf("name: %s\n", handle->name);
 }
 
 /*
