@@ -34,9 +34,6 @@ static volatile sig_atomic_t keep_running = 1;
 static void sig_handler(int _) {
     (void) _;
     keep_running = 0;
-
-    char msg[] = "\nSignal received\n";
-    write(STDOUT_FILENO, msg, sizeof(msg) - 1);
 }
 
 typedef struct {
@@ -252,7 +249,7 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
             } else {
                 fprintf(stderr, "Handler not found\n");
             }
-            new_msg = new_rpc_message(321, REPLY, msg->function_name, new_rpc_data(exists, 0, NULL));
+            new_msg = new_rpc_message(321, REPLY, new_string(msg->function_name), new_rpc_data(exists, 0, NULL));
             break;
 
         case CALL:
@@ -266,7 +263,7 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
             rpc_data *data = handler(msg->data);
 
             // create a new message to send back to the client
-            new_msg = new_rpc_message(321, REPLY, msg->function_name, data);
+            new_msg = new_rpc_message(321, REPLY, new_string(msg->function_name), data);
             break;
 
         case REPLY:
@@ -281,6 +278,10 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
     }
     // send the message to the server
     send_rpc_message(cl->sockfd, new_msg);
+
+    // free the message
+    free_rpc_message(msg);
+    free_rpc_message(new_msg);
 }
 
 /*
@@ -316,6 +317,12 @@ void rpc_shutdown_server(rpc_server *srv) {
 
     // close the socket
     close(srv->sockfd);
+
+    // free the hashtable
+    hashtable_destroy(srv->handlers, free);
+
+    // free the list of clients
+    free_list(srv->clients, free);
 
     // free the server state
     free(srv);
