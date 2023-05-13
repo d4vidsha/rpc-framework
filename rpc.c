@@ -24,6 +24,7 @@
 #include <signal.h>
 #include <assert.h>
 #include <ctype.h>
+#include <errno.h>
 
 static volatile sig_atomic_t keep_running = 1;
 
@@ -58,13 +59,14 @@ typedef struct {
 void handle_request(rpc_server *srv, rpc_client_state *cl);
 void handle_all_requests(rpc_server *srv, rpc_client_state *cl);
 void rpc_shutdown_server(rpc_server *srv);
+int is_socket_closed(int sockfd);
 
 void print_handler(void *data);
 rpc_message *request(int sockfd, rpc_message *msg);
 int write_bytes(int sockfd, const unsigned char *msg, int size);
 int read_bytes(int sockfd, unsigned char *buffer, int size);
 void print_bytes(const unsigned char *buffer, size_t len);
-void send_rpc_message(int sockfd, rpc_message *msg);
+int send_rpc_message(int sockfd, rpc_message *msg);
 rpc_message *receive_rpc_message(int sockfd);
 
 unsigned char *serialise_int(unsigned char *buffer, int value);
@@ -205,7 +207,7 @@ void rpc_serve_all(rpc_server *srv) {
  * @param client_addr The client's address.
  */
 void handle_all_requests(rpc_server *srv, rpc_client_state *cl) {
-    while (keep_running && cl->sockfd != -1) {
+    while (!is_socket_closed(cl->sockfd)) {
         fprintf(stderr, "===================================================\n");
         fprintf(stderr, "Waiting for request...\n");
         handle_request(srv, cl);
@@ -219,8 +221,20 @@ void handle_all_requests(rpc_server *srv, rpc_client_state *cl) {
  * @param cl The client state.
  */
 void handle_request(rpc_server *srv, rpc_client_state *cl) {
+    // check that socket is not closed
+    if (is_socket_closed(cl->sockfd)) {
+        fprintf(stderr, "Client disconnected\n");
+        return;
+    }
+
     // receive rpc_message from the client and process it
-    rpc_message *msg = receive_rpc_message(cl->sockfd);
+    rpc_message *msg;
+    if ((msg = receive_rpc_message(cl->sockfd)) == NULL) {
+        fprintf(stderr, "Client disconnected\n");
+        return;
+    }
+    
+
     rpc_message *new_msg = NULL;
     switch (msg->operation) {
 
@@ -267,6 +281,25 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
     }
     // send the message to the server
     send_rpc_message(cl->sockfd, new_msg);
+}
+
+/*
+ * Checks if a socket is closed.
+ *
+ * @param sockfd The socket file descriptor.
+ * @return 1 if the socket is closed, 0 otherwise.
+ */
+int is_socket_closed(int sockfd) {
+    char buf[1];
+    ssize_t n = recv(sockfd, buf, sizeof(buf), MSG_PEEK);
+    if (n == 0) {
+        return 1;
+    } else if (n == -1) {
+        perror("recv");
+        return 0;
+    } else {
+        return 0;
+    }
 }
 
 /*
@@ -349,6 +382,9 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
                                     )
                                   )
                                 );
+    if (reply == NULL) {
+        return NULL;
+    }
 
     // check if the handler exists
     if (reply->operation == REPLY && reply->data->data1 == TRUE) {
@@ -374,6 +410,9 @@ rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
                                     payload
                                   )
                                 );
+    if (reply == NULL) {
+        return NULL;
+    }
 
     // send the reply back to the client
     if (reply->operation == REPLY) {
@@ -431,8 +470,13 @@ int write_bytes(int sockfd, const unsigned char *bytes, int size) {
     print_bytes(bytes, size);
     int n = write(sockfd, bytes, size);
     if (n < 0) {
-        perror("write");
-        exit(EXIT_FAILURE);
+        if (errno == EPIPE) {
+            fprintf(stderr, "Connection closed by client\n");
+            close(sockfd);
+        } else {
+            perror("write");
+            exit(EXIT_FAILURE);
+        }
     }
     return n;
 }
@@ -450,8 +494,12 @@ int read_bytes(int sockfd, unsigned char *buffer, int size) {
     if (n < 0) {
         perror("read");
         exit(EXIT_FAILURE);
+    } else if (n == 0) {
+        fprintf(stderr, "Connection closed\n");
+        close(sockfd);
+    } else {
+        print_bytes(buffer, n);
     }
-    print_bytes(buffer, size);
     return n;
 }
 
@@ -489,8 +537,9 @@ void print_bytes(const unsigned char *buffer, size_t len) {
  * 
  * @param sockfd The socket to send the message to.
  * @param msg The message to send.
+ * @return 0 if successful, -1 otherwise.
  */
-void send_rpc_message(int sockfd, rpc_message *msg) {
+int send_rpc_message(int sockfd, rpc_message *msg) {
 
     // convert message to serialised form
     unsigned char buffer[BUFSIZ], *ptr;
@@ -500,11 +549,15 @@ void send_rpc_message(int sockfd, rpc_message *msg) {
     int size = ptr - buffer;
     unsigned char size_buffer[sizeof(size)], *size_ptr = size_buffer;
     serialise_int(size_buffer, size);
-    write_bytes(sockfd, size_buffer, sizeof(size));
+    if (write_bytes(sockfd, size_buffer, sizeof(size)) < 0) {
+        return FAILED;
+    }
 
     // read that the number of bytes sent is correct
     int n;
-    read_bytes(sockfd, size_buffer, sizeof(size));
+    if (read_bytes(sockfd, size_buffer, sizeof(size)) <= 0) {
+        return FAILED;
+    }
     n = deserialise_int(&size_ptr);
     if (n != size) {
         fprintf(stderr, "Error: sent %d bytes but received %d bytes before sending message\n", size, n);
@@ -514,28 +567,38 @@ void send_rpc_message(int sockfd, rpc_message *msg) {
     }
 
     // send the message
-    write_bytes(sockfd, buffer, size);
+    if (write_bytes(sockfd, buffer, size) < 0) {
+        return FAILED;
+    }
+
+    return 0;
 }
 
 /*
  * Receive an rpc_message from a socket.
  * 
  * @param sockfd The socket to receive the message from.
- * @return The message received.
+ * @return The message received. NULL if there was an error.
  */
 rpc_message *receive_rpc_message(int sockfd) {
 
     // read size of message and send back to confirm
     int size;
     unsigned char size_buffer[sizeof(size)], *size_ptr = size_buffer;
-    read_bytes(sockfd, size_buffer, sizeof(size));
+    if (read_bytes(sockfd, size_buffer, sizeof(size)) <= 0) {
+        return NULL;
+    }
     size = deserialise_int(&size_ptr);
     fprintf(stderr, "Sending back the expected size of %d bytes...\n", size);
-    write_bytes(sockfd, size_buffer, sizeof(size));
+    if (write_bytes(sockfd, size_buffer, sizeof(size)) < 0) {
+        return NULL;
+    }
 
     // read message
     unsigned char buffer[size], *ptr = buffer;
-    read_bytes(sockfd, buffer, size);
+    if (read_bytes(sockfd, buffer, size) <= 0) {
+        return NULL;
+    }
     rpc_message *msg = deserialise_rpc_message(&ptr);
 
     return msg;
@@ -545,18 +608,18 @@ rpc_message *receive_rpc_message(int sockfd) {
  * Send a message through a socket and receive a response.
  * @param sockfd The socket to send the message to.
  * @param msg The message to send.
- * @return The response from the server.
+ * @return The response from the server. NULL if there was an error.
  * @note We must be wary of serialisation and endianess.
  */
 rpc_message *request(int sockfd, rpc_message *msg) {
 
     // send message
-    send_rpc_message(sockfd, msg);
+    if (send_rpc_message(sockfd, msg) == FAILED) {
+        return NULL;
+    }
 
-    // receive response
-    rpc_message *response = receive_rpc_message(sockfd);
-
-    return response;
+    // return response
+    return receive_rpc_message(sockfd);
 }
 
 /*
