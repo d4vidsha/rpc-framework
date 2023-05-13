@@ -8,10 +8,7 @@
 #define _POSIX_C_SOURCE 200112L
 #include "sockets.h"
 #include "config.h"
-#include <arpa/inet.h>
-#include <assert.h>
 #include <netdb.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -18,9 +18,6 @@
 #include "sockets.h"
 #include <arpa/inet.h>
 #include <assert.h>
-#include <ctype.h>
-#include <errno.h>
-#include <netdb.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
