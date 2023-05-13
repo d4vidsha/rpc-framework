@@ -120,9 +120,6 @@ rpc_server *rpc_init_server(int port) {
 }
 
 int rpc_register(rpc_server *srv, char *name, rpc_handler handler) {
-
-    fprintf(stderr, "Added %s handler\n", name);
-
     // check if any of the parameters are NULL
     if (srv == NULL || name == NULL || handler == NULL) {
         return FAILED;
@@ -143,6 +140,8 @@ int rpc_register(rpc_server *srv, char *name, rpc_handler handler) {
     if (h == NULL) {
         return FAILED;
     }
+
+    fprintf(stderr, "Registered \"%s\" function handler\n", name);
 
     return EXIT_SUCCESS;
 }
