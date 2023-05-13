@@ -15,6 +15,7 @@
 #include "hashtable.h"
 #include "linkedlist.h"
 #include "sockets.h"
+#include "protocol.h"
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -43,54 +44,67 @@ typedef struct {
     socklen_t client_addr_size;
 } rpc_client_state;
 
-typedef struct {
-    int request_id;
-    enum {
-        FIND,
-        CALL,
-        REPLY,
-    } operation;
-    char *function_name;
-    rpc_data *data;
-} rpc_message;
 
+/*
+ * Handle a request from the client.
+ * 
+ * @param srv The server state.
+ * @param cl The client state.
+ */
 void handle_request(rpc_server *srv, rpc_client_state *cl);
+
+/*
+ * Handle all requests from the client.
+ * 
+ * @param srv The server state.
+ * @param cl The client state.
+ * @param client_addr The client's address.
+ */
 void handle_all_requests(rpc_server *srv, rpc_client_state *cl);
+
+/*
+ * Shuts down the server and frees the server state.
+ * 
+ * @param srv The server state.
+ */
 void rpc_shutdown_server(rpc_server *srv);
+
+/*
+ * Checks if a socket is closed.
+ *
+ * @param sockfd The socket file descriptor.
+ * @return 1 if the socket is closed, 0 otherwise.
+ */
 int is_socket_closed(int sockfd);
 
+/*
+ * Print client's IP address and port number.
+ *
+ * @param cl The client state.
+ */
 void print_client_info(rpc_client_state *cl);
+
+/*
+ * Print the handler.
+ *
+ * @param data The handler to print.
+ */
 void print_handler(void *data);
-rpc_message *request(int sockfd, rpc_message *msg);
-int write_bytes(int sockfd, const unsigned char *msg, int size);
-int read_bytes(int sockfd, unsigned char *buffer, int size);
-void print_bytes(const unsigned char *buffer, size_t len);
-int send_rpc_message(int sockfd, rpc_message *msg);
-rpc_message *receive_rpc_message(int sockfd);
 
-unsigned char *serialise_int(unsigned char *buffer, int value);
-int deserialise_int(unsigned char **buffer_ptr);
-unsigned char *serialise_size_t(unsigned char *buffer, size_t value);
-size_t deserialise_size_t(unsigned char **buffer_ptr);
-unsigned char *serialise_string(unsigned char *buffer, const char *value);
-char *deserialise_string(unsigned char **buffer_ptr);
-unsigned char *serialise_rpc_data(unsigned char *buffer, const rpc_data *data);
-rpc_data *deserialise_rpc_data(unsigned char **buffer_ptr);
-unsigned char *serialise_rpc_message(unsigned char *buffer, const rpc_message *message);
-rpc_message *deserialise_rpc_message(unsigned char **buffer_ptr);
-
-char *new_string(const char *value);
+/*
+ * Create a new RPC handle.
+ * 
+ * @param name: name of RPC handle
+ * @return new RPC handle.
+ */
 rpc_handle *new_rpc_handle(const char *name);
+
+/*
+ * Free an RPC handle.
+ *
+ * @param handle The RPC handle to free.
+ */
 void free_rpc_handle_internal(void *handle);
-void print_rpc_handle(rpc_handle *handle);
-rpc_data *new_rpc_data(int data1, size_t data2_len, void *data2);
-void print_rpc_message(rpc_message *message);
-rpc_message *new_rpc_message(int request_id, int operation, char *function_name, rpc_data *data);
-void free_rpc_message(rpc_message *message, void (*free_data)(rpc_data *));
-void print_rpc_data(rpc_data *data);
-
-
-
 
 struct rpc_server {
     int port;
@@ -211,11 +225,6 @@ void rpc_serve_all(rpc_server *srv) {
     return;
 }
 
-/*
- * Print client's IP address and port number.
- *
- * @param cl The client state.
- */
 void print_client_info(rpc_client_state *cl) {
     struct sockaddr_storage addr;
     socklen_t addr_len = sizeof(addr);
@@ -243,13 +252,6 @@ void print_client_info(rpc_client_state *cl) {
     }
 }
 
-/*
- * Handle all requests from the client.
- * 
- * @param srv The server state.
- * @param cl The client state.
- * @param client_addr The client's address.
- */
 void handle_all_requests(rpc_server *srv, rpc_client_state *cl) {
     while (!is_socket_closed(cl->sockfd)) {
         fprintf(stderr, "==================================================\n");
@@ -258,12 +260,6 @@ void handle_all_requests(rpc_server *srv, rpc_client_state *cl) {
     }
 }
 
-/*
- * Handle a request from the client.
- * 
- * @param srv The server state.
- * @param cl The client state.
- */
 void handle_request(rpc_server *srv, rpc_client_state *cl) {
     // check that socket is not closed
     if (is_socket_closed(cl->sockfd)) {
@@ -331,12 +327,6 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
     free_rpc_message(new_msg, rpc_data_free);
 }
 
-/*
- * Checks if a socket is closed.
- *
- * @param sockfd The socket file descriptor.
- * @return 1 if the socket is closed, 0 otherwise.
- */
 int is_socket_closed(int sockfd) {
     char buf[1];
     ssize_t n = recv(sockfd, buf, sizeof(buf), MSG_PEEK);
@@ -350,11 +340,6 @@ int is_socket_closed(int sockfd) {
     }
 }
 
-/*
- * Shuts down the server and frees the server state.
- * 
- * @param srv The server state.
- */
 void rpc_shutdown_server(rpc_server *srv) {
 
     // check if the server is NULL
@@ -386,9 +371,6 @@ struct rpc_client {
 struct rpc_handle {
     char *name;
 };
-
-
-
 
 rpc_client *rpc_init_client(char *addr, int port) {
 
@@ -518,338 +500,11 @@ void rpc_data_free(rpc_data *data) {
     free(data);
 }
 
-/*
- * Print the handler.
- *
- * @param data The handler to print.
- */
 void print_handler(void *data) {
     rpc_handler h = (rpc_handler)data;
     printf("%p\n", h);
 }
 
-/*
- * Write a string of bytes to a socket.
- *
- * @param sockfd The socket to write to.
- * @param bytes The bytes to write.
- * @param size The number of bytes to write.
- */
-int write_bytes(int sockfd, const unsigned char *bytes, int size) {
-    fprintf(stderr, "Writing %d bytes\n", size);
-    print_bytes(bytes, size);
-    int n = write(sockfd, bytes, size);
-    if (n < 0) {
-        if (errno == EPIPE) {
-            fprintf(stderr, "Connection closed by client\n");
-            close(sockfd);
-        } else {
-            perror("write");
-            exit(EXIT_FAILURE);
-        }
-    }
-    return n;
-}
-
-/*
- * Read a string of bytes from a socket.
- *
- * @param sockfd The socket to read from.
- * @param buffer The buffer to read into.
- * @param size The number of bytes to read.
- */
-int read_bytes(int sockfd, unsigned char *buffer, int size) {
-    fprintf(stderr, "\nReading %d bytes\n", size);
-    int n = read(sockfd, buffer, size);
-    if (n < 0) {
-        perror("read");
-        exit(EXIT_FAILURE);
-    } else if (n == 0) {
-        fprintf(stderr, "Connection closed\n");
-        close(sockfd);
-    } else {
-        print_bytes(buffer, n);
-    }
-    return n;
-}
-
-/*
- * Print bytes.
- * 
- * @param buffer: buffer to print
- * @param len: length of buffer
- */
-void print_bytes(const unsigned char *buffer, size_t len) {
-    printf("Serialised message (%ld bytes):\n", len);
-    int box_size = 16;
-    for (int i = 0; i < len; i += box_size) {
-        for (int j = 0; j < box_size; j++) {
-            if (i + j < len)
-                printf("%02X ", buffer[i + j]);
-            else
-                printf("   ");
-        }
-        printf("  ");
-        for (int j = 0; j < box_size; j++) {
-            if (i + j < len) {
-                if (isprint(buffer[i + j]))
-                    printf("%c", buffer[i + j]);
-                else
-                    printf(".");
-            }
-        }
-        printf("\n");
-    }
-}
-
-/*
- * Send an rpc_message through a socket.
- * 
- * @param sockfd The socket to send the message to.
- * @param msg The message to send.
- * @return 0 if successful, -1 otherwise.
- */
-int send_rpc_message(int sockfd, rpc_message *msg) {
-
-    // convert message to serialised form
-    unsigned char buffer[BUFSIZ], *ptr;
-    ptr = serialise_rpc_message(buffer, msg);
-
-    // send an integer representing the size of the message
-    int size = ptr - buffer;
-    unsigned char size_buffer[sizeof(size)], *size_ptr = size_buffer;
-    serialise_int(size_buffer, size);
-    if (write_bytes(sockfd, size_buffer, sizeof(size)) < 0) {
-        return FAILED;
-    }
-
-    // read that the number of bytes sent is correct
-    int n;
-    if (read_bytes(sockfd, size_buffer, sizeof(size)) <= 0) {
-        return FAILED;
-    }
-    n = deserialise_int(&size_ptr);
-    if (n != size) {
-        fprintf(stderr, "Error: sent %d bytes but received %d bytes before sending message\n", size, n);
-        exit(EXIT_FAILURE);
-    } else {
-        fprintf(stderr, "Looks good, sending payload...\n");
-    }
-
-    // send the message
-    if (write_bytes(sockfd, buffer, size) < 0) {
-        return FAILED;
-    }
-
-    return 0;
-}
-
-/*
- * Receive an rpc_message from a socket.
- * 
- * @param sockfd The socket to receive the message from.
- * @return The message received. NULL if there was an error.
- */
-rpc_message *receive_rpc_message(int sockfd) {
-
-    // read size of message and send back to confirm
-    int size;
-    unsigned char size_buffer[sizeof(size)], *size_ptr = size_buffer;
-    if (read_bytes(sockfd, size_buffer, sizeof(size)) <= 0) {
-        return NULL;
-    }
-    size = deserialise_int(&size_ptr);
-    fprintf(stderr, "Sending back the expected size of %d bytes...\n", size);
-    if (write_bytes(sockfd, size_buffer, sizeof(size)) < 0) {
-        return NULL;
-    }
-
-    // read message
-    unsigned char buffer[size], *ptr = buffer;
-    if (read_bytes(sockfd, buffer, size) <= 0) {
-        return NULL;
-    }
-    rpc_message *msg = deserialise_rpc_message(&ptr);
-
-    return msg;
-}
-
-/*
- * Send a message through a socket and receive a response.
- * @param sockfd The socket to send the message to.
- * @param msg The message to send.
- * @return The response from the server. NULL if there was an error.
- * @note We must be wary of serialisation and endianess.
- */
-rpc_message *request(int sockfd, rpc_message *msg) {
-
-    // send message
-    if (send_rpc_message(sockfd, msg) == FAILED) {
-        free_rpc_message(msg, NULL);
-        return NULL;
-    }
-    free_rpc_message(msg, NULL);
-
-    // return response
-    return receive_rpc_message(sockfd);
-}
-
-/*
- * Serialise integer value into buffer.
- * 
- * @param buffer: buffer to serialise into
- * @param value: integer value to serialise
- * @return: pointer to next byte in buffer
- */
-unsigned char *serialise_int(unsigned char *buffer, int value) {
-    value = htonl(value);
-    memcpy(buffer, &value, sizeof(int));
-    return buffer + sizeof(int);
-}
-
-/*
- * Deserialise integer value from buffer.
- * 
- * @param buffer: buffer to deserialise from
- * @return: deserialised integer value
- * @note: buffer pointer is incremented
- */
-int deserialise_int(unsigned char **buffer_ptr) {
-    int value;
-    memcpy(&value, *buffer_ptr, sizeof(int));
-    *buffer_ptr += sizeof(int);
-    return ntohl(value);
-}
-
-/*
- * Serialise size_t value into buffer.
- * 
- * @param buffer: buffer to serialise into
- * @param value: size_t value to serialise
- * @return: pointer to next byte in buffer
- */
-unsigned char *serialise_size_t(unsigned char *buffer, size_t value) {
-    value = htonl(value);
-    memcpy(buffer, &value, sizeof(size_t));
-    return buffer + sizeof(size_t);
-}
-
-/*
- * Deserialise size_t value from buffer.
- * 
- * @param buffer: buffer to deserialise from
- * @return: deserialised size_t value
- * @note: buffer pointer is incremented
- */
-size_t deserialise_size_t(unsigned char **buffer_ptr) {
-    size_t value;
-    memcpy(&value, *buffer_ptr, sizeof(size_t));
-    *buffer_ptr += sizeof(size_t);
-    return ntohl(value);
-}
-
-/*
- * Serialise string value into buffer.
- * 
- * @param buffer: buffer to serialise into
- * @param value: string value to serialise
- * @return: pointer to next byte in buffer
- */
-unsigned char *serialise_string(unsigned char *buffer, const char *value) {
-    size_t len = strlen(value) + 1;
-    buffer = serialise_size_t(buffer, len);
-    memcpy(buffer, value, len);
-    return buffer + len;
-}
-
-/*
- * Deserialise string value from buffer.
- * 
- * @param buffer: buffer to deserialise from
- * @return: deserialised string value
- * @note: buffer pointer is incremented
- */
-char *deserialise_string(unsigned char **buffer_ptr) {
-    size_t len = deserialise_size_t(buffer_ptr);
-    char *value = new_string((char *)*buffer_ptr);
-    *buffer_ptr += len;
-    return value;
-}
-
-/*
- * Serialise rpc_data value into buffer.
- * 
- * @param buffer: buffer to serialise into
- * @param data: rpc_data value to serialise
- * @return: pointer to next byte in buffer
- */
-unsigned char *serialise_rpc_data(unsigned char *buffer, const rpc_data *data) {
-    buffer = serialise_int(buffer, data->data1);
-    buffer = serialise_size_t(buffer, data->data2_len);
-    
-    // optionally serialise data2
-    if (data->data2_len > 0 && data->data2 != NULL) {
-        memcpy(buffer, data->data2, data->data2_len);
-        buffer += data->data2_len;
-    }
-
-    return buffer;
-}
-
-/*
- * Deserialise rpc_data value from buffer.
- * 
- * @param buffer: buffer to deserialise from
- * @return: deserialised rpc_data value
- * @note: buffer pointer is incremented
- */ 
-rpc_data *deserialise_rpc_data(unsigned char **buffer_ptr) {
-    rpc_data *data = new_rpc_data(
-        deserialise_int(buffer_ptr),
-        deserialise_size_t(buffer_ptr),
-        *buffer_ptr
-    );
-    *buffer_ptr += data->data2_len;
-    return data;
-}
-
-unsigned char *serialise_rpc_message(unsigned char *buffer, const rpc_message *message) {
-    buffer = serialise_int(buffer, message->request_id);
-    buffer = serialise_int(buffer, message->operation);
-    buffer = serialise_string(buffer, message->function_name);
-    buffer = serialise_rpc_data(buffer, message->data);
-    return buffer;
-}
-
-rpc_message *deserialise_rpc_message(unsigned char **buffer_ptr) {
-    rpc_message *message = new_rpc_message(
-        deserialise_int(buffer_ptr),
-        deserialise_int(buffer_ptr),
-        deserialise_string(buffer_ptr),
-        deserialise_rpc_data(buffer_ptr)
-    );
-    return message;
-}
-
-/*
- * Create a new string.
- * 
- * @param value: string value
- * @return: new string
- */
-char *new_string(const char *value) {
-    char *string = (char *)malloc(sizeof(char) * (strlen(value) + 1));
-    assert(string);
-    strcpy(string, value);
-    return string;
-}
-
-/*
- * Create a new RPC handle.
- * 
- * @param name: name of RPC handle
- * @return new RPC handle.
- */
 rpc_handle *new_rpc_handle(const char *name) {
     rpc_handle *handle = (rpc_handle *)malloc(sizeof(*handle));
     assert(handle);
@@ -857,99 +512,7 @@ rpc_handle *new_rpc_handle(const char *name) {
     return handle;
 }
 
-/*
- * Create a new RPC data.
- *
- * @param data1 The first data value.
- * @param data2 The second data value.
- * @param data2_len The length of the second data value.
- * @return The new RPC data.
- */
-rpc_data *new_rpc_data(int data1, size_t data2_len, void *data2) {
-    rpc_data *data = (rpc_data *)malloc(sizeof(*data));
-    assert(data);
-    data->data1 = data1;
-    data->data2_len = data2_len;
-    if (data2_len == 0) {
-        data->data2 = NULL;
-    } else {
-        data->data2 = malloc(data2_len);
-        assert(data->data2);
-        memcpy(data->data2, data2, data2_len);
-    }
-    return data;
-}
-
-/*
- * Create a new RPC message.
- *
- * @param request_id The request ID.
- * @param operation The operation to perform.
- * @param handle The handle to perform the operation on.
- * @param data The data to send.
- * @return The new RPC message.
- */
-rpc_message *new_rpc_message(int request_id, int operation, char *function_name, rpc_data *data) {
-    rpc_message *message = (rpc_message *)malloc(sizeof(*message));
-    assert(message);
-    message->request_id = request_id;
-    message->operation = operation;
-    message->function_name = function_name;
-    message->data = data;
-    return message;
-}
-
-/*
- * Free an RPC handle.
- *
- * @param handle The RPC handle to free.
- */
 void free_rpc_handle_internal(void *handle) {
     rpc_handle *h = (rpc_handle *)handle;
     free(h->name);
-}
-
-/*
- * Free an RPC message.
- *
- * @param message The RPC message to free.
- */
-void free_rpc_message(rpc_message *message, void (*free_data)(rpc_data *)) {
-    free(message->function_name);
-    if (free_data) {
-        free_data(message->data);
-    }
-    free(message);
-}
-
-/*
- * Print an RPC handle.
- *
- * @param handle The RPC handle to print.
- */
-void print_rpc_handle(rpc_handle *handle) {
-    printf("name: %s\n", handle->name);
-}
-
-/*
- * Print an RPC data.   
- *
- * @param data The RPC data to print.
- */
-void print_rpc_data(rpc_data *data) {
-    printf("data1: %d\n", data->data1);
-    printf("data2_len: %zu\n", data->data2_len);
-    printf("data2: %s\n", (char *)data->data2);
-}
-
-/*
- * Print an RPC message.
- *
- * @param message The RPC message to print.
- */
-void print_rpc_message(rpc_message *message) {
-    printf("request_id: %d\n", message->request_id);
-    printf("operation: %d\n", message->operation);
-    printf("function_name: %s\n", message->function_name);
-    print_rpc_data(message->data);
 }

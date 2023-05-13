@@ -2,7 +2,7 @@ CC=gcc
 CFLAGS=-Wall -g
 LDLIBS=
 
-SRC=rpc.c hashtable.c linkedlist.c sockets.c
+SRC=rpc.c hashtable.c linkedlist.c sockets.c protocol.c
 OBJ = $(SRC:.c=.o)
 
 RPC_SYSTEM_A=rpc.a
