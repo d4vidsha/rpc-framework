@@ -59,6 +59,24 @@ void handle_request(rpc_server *srv, rpc_client_state *cl);
 void handle_all_requests(rpc_server *srv, rpc_client_state *cl);
 
 /*
+ * Handle a find request from the client.
+ * 
+ * @param srv The server state.
+ * @param msg The message from the client.
+ * @return The response to the client.
+ */
+rpc_message *handle_find_request(rpc_server *srv, rpc_message *msg);
+
+/*
+ * Handle a call request from the client.
+ * 
+ * @param srv The server state.
+ * @param msg The message from the client.
+ * @return The response to the client.
+ */
+rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg);
+
+/*
  * Shuts down the server and frees the server state.
  *
  * @param srv The server state.
@@ -270,57 +288,55 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
 
     rpc_message *new_msg = NULL;
     switch (msg->operation) {
+        case FIND:
+            debug_print("%s", "Received FIND request\n");
+            debug_print("Looking for handler: %s\n", msg->function_name);
+            new_msg = handle_find_request(srv, msg);
+            break;
 
-    case FIND:
-        debug_print("%s", "Received FIND request\n");
-        debug_print("Looking for handler: %s\n", msg->function_name);
+        case CALL:
+            debug_print("%s", "Received CALL request\n");
+            debug_print("Calling handler: %s\n", msg->function_name);
+            new_msg = handle_call_request(srv, msg);
+            break;
 
-        // get the handler from the hashtable
-        rpc_handler h = hashtable_lookup(srv->handlers, msg->function_name);
+        case REPLY:
+            debug_print("%s", "Received REPLY request\n");
+            debug_print("%s", "Doing nothing...\n");
+            break;
 
-        // check if the handler exists
-        int exists = h != NULL;
-        if (exists) {
-            debug_print("%s", "Handler found\n");
-        } else {
-            debug_print("%s", "Handler not found\n");
-        }
-        new_msg = new_rpc_message(321, REPLY, new_string(msg->function_name),
-                                  new_rpc_data(exists, 0, NULL));
-        break;
-
-    case CALL:
-        debug_print("%s", "Received CALL request\n");
-        debug_print("Calling handler: %s\n", msg->function_name);
-
-        // get the handler from the hashtable
-        rpc_handler handler =
-            hashtable_lookup(srv->handlers, msg->function_name);
-
-        // run the handler
-        rpc_data *data = handler(msg->data);
-
-        // create a new message to send back to the client
-        new_msg =
-            new_rpc_message(321, REPLY, new_string(msg->function_name), data);
-        break;
-
-    case REPLY:
-        debug_print("%s", "Received REPLY request\n");
-        debug_print("%s", "Doing nothing...\n");
-        break;
-
-    default:
-        debug_print("Received unknown request: %d\n", msg->operation);
-        debug_print("%s", "Doing nothing...\n");
-        break;
+        default:
+            debug_print("Received unknown request: %d\n", msg->operation);
+            debug_print("%s", "Doing nothing...\n");
+            break;
     }
+
     // send the message to the server
     send_rpc_message(cl->sockfd, new_msg);
-
-    // free the message
     free_rpc_message(msg, rpc_data_free);
     free_rpc_message(new_msg, rpc_data_free);
+}
+
+rpc_message *handle_find_request(rpc_server *srv, rpc_message *msg) {
+    // get the handler from the hashtable
+    rpc_handler h = hashtable_lookup(srv->handlers, msg->function_name);
+
+    // check if the handler exists
+    int exists = (h != NULL);
+    debug_print("Handler %s\n", exists ? "found" : "not found");
+
+    // create a new message to send back to the client
+    return new_rpc_message(msg->request_id, REPLY, new_string(msg->function_name), new_rpc_data(exists, 0, NULL));
+}
+
+rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg) {
+    rpc_handler h = hashtable_lookup(srv->handlers, msg->function_name);
+
+    // run the handler
+    rpc_data *new_data = h(msg->data);
+
+    // create a new message to send back to the client
+    return new_rpc_message(msg->request_id, REPLY, new_string(msg->function_name), new_data);
 }
 
 int is_socket_closed(int sockfd) {
