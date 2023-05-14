@@ -77,17 +77,18 @@ int send_rpc_message(int sockfd, rpc_message *msg) {
 
     // send an integer representing the size of the message
     int size = ptr - buffer;
-    unsigned char size_buffer[sizeof(size)], *size_ptr = size_buffer;
-    serialise_int(size_buffer, size);
-    if (write_bytes(sockfd, size_buffer, sizeof(size)) < 0) {
+    unsigned char size_buffer[BUFSIZ], *size_ptr = size_buffer;
+    size_ptr = serialise_int(size_buffer, size);
+    if (write_bytes(sockfd, size_buffer, size_ptr - size_buffer) < 0) {
         return FAILED;
     }
 
     // read that the number of bytes sent is correct
     int n;
-    if (read_bytes(sockfd, size_buffer, sizeof(size)) <= 0) {
+    if (read_bytes(sockfd, size_buffer, size_ptr - size_buffer) <= 0) {
         return FAILED;
     }
+    size_ptr = size_buffer;
     n = deserialise_int(&size_ptr);
     if (n != size) {
         debug_print("Error: sent %d bytes but received %d bytes before sending "
@@ -110,13 +111,13 @@ rpc_message *receive_rpc_message(int sockfd) {
 
     // read size of message and send back to confirm
     int size;
-    unsigned char size_buffer[sizeof(size)], *size_ptr = size_buffer;
-    if (read_bytes(sockfd, size_buffer, sizeof(size)) <= 0) {
+    unsigned char size_buffer[BUFSIZ], *size_ptr = size_buffer;
+    if (read_bytes(sockfd, size_buffer, BUFSIZ) <= 0) {
         return NULL;
     }
     size = deserialise_int(&size_ptr);
     debug_print("Sending back the expected size of %d bytes...\n", size);
-    if (write_bytes(sockfd, size_buffer, sizeof(size)) < 0) {
+    if (write_bytes(sockfd, size_buffer, size_ptr - size_buffer) < 0) {
         return NULL;
     }
 
@@ -235,8 +236,9 @@ unsigned char *serialise_rpc_data(unsigned char *buffer, const rpc_data *data) {
 }
 
 rpc_data *deserialise_rpc_data(unsigned char **buffer_ptr) {
-    rpc_data *data = new_rpc_data(deserialise_int(buffer_ptr),
-                                  deserialise_size_t(buffer_ptr), *buffer_ptr);
+    int data1 = deserialise_int(buffer_ptr);
+    size_t data2_len = deserialise_size_t(buffer_ptr);
+    rpc_data *data = new_rpc_data(data1, data2_len, *buffer_ptr);
     *buffer_ptr += data->data2_len;
     return data;
 }
@@ -251,9 +253,11 @@ unsigned char *serialise_rpc_message(unsigned char *buffer,
 }
 
 rpc_message *deserialise_rpc_message(unsigned char **buffer_ptr) {
-    rpc_message *message = new_rpc_message(
-        deserialise_int(buffer_ptr), deserialise_int(buffer_ptr),
-        deserialise_string(buffer_ptr), deserialise_rpc_data(buffer_ptr));
+    int request_id = deserialise_int(buffer_ptr);
+    int operation = deserialise_int(buffer_ptr);
+    char *function_name = deserialise_string(buffer_ptr);
+    rpc_data *data = deserialise_rpc_data(buffer_ptr);
+    rpc_message *message = new_rpc_message(request_id, operation, function_name, data);
     return message;
 }
 
