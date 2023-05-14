@@ -37,9 +37,17 @@ static void sig_handler(int _) {
 
 typedef struct {
     int sockfd;
-    struct sockaddr_in client_addr;
-    socklen_t client_addr_size;
+    struct sockaddr_in addr;
+    socklen_t addr_size;
 } rpc_client_state;
+
+/*
+ * Handle all requests from the client.
+ *
+ * @param srv The server state.
+ * @param cl The client state.
+ */
+void handle_all_requests(rpc_server *srv, rpc_client_state *cl);
 
 /*
  * Handle a request from the client.
@@ -48,15 +56,6 @@ typedef struct {
  * @param cl The client state.
  */
 void handle_request(rpc_server *srv, rpc_client_state *cl);
-
-/*
- * Handle all requests from the client.
- *
- * @param srv The server state.
- * @param cl The client state.
- * @param client_addr The client's address.
- */
-void handle_all_requests(rpc_server *srv, rpc_client_state *cl);
 
 /*
  * Handle a find request from the client.
@@ -82,6 +81,19 @@ rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg);
  * @param srv The server state.
  */
 void rpc_shutdown_server(rpc_server *srv);
+
+/*
+ * Accept a connection from a client in a non-blocking manner. This assumes
+ * this function is run within a loop.
+ * 
+ * @param sockfd The socket file descriptor.
+ * @param client_addr The client's address that will be populated by this
+ * function call.
+ * @param client_addr_size The size of the client's address that is populated
+ * during this function call.
+ * @return The client's socket file descriptor, or -1 if no client is connected.
+ */
+int non_blocking_accept(int sockfd, struct sockaddr_in *client_addr, socklen_t *client_addr_size);
 
 /*
  * Checks if a socket is closed.
@@ -187,36 +199,20 @@ void rpc_serve_all(rpc_server *srv) {
         }
 
         // accept a connection non-blocking using select
-        int sockfd;
-        struct sockaddr_in client_addr;
-        socklen_t client_addr_size = sizeof client_addr;
-        fd_set readfds;
-        FD_ZERO(&readfds);
-        FD_SET(srv->sockfd, &readfds);
-        struct timeval tv = {.tv_sec = 0, .tv_usec = 0};
-        int retval = select(srv->sockfd + 1, &readfds, NULL, NULL, &tv);
-        if (retval == FAILED) {
-            perror("select");
-            exit(EXIT_FAILURE);
-        } else if (retval) {
-            // connection request received
-            sockfd = accept(srv->sockfd, (struct sockaddr *)&client_addr,
-                            &client_addr_size);
-            if (sockfd < 0) {
-                perror("accept");
-                exit(EXIT_FAILURE);
-            }
-        } else {
-            // no connection requests received
+        struct sockaddr_in cl_addr;
+        socklen_t cl_addr_size = sizeof(cl_addr);
+        int cl_sockfd;
+        cl_sockfd = non_blocking_accept(srv->sockfd, &cl_addr, &cl_addr_size);
+        if (cl_sockfd < 0) {
             continue;
         }
 
         // store client information
         rpc_client_state *cl = (rpc_client_state *)malloc(sizeof(*cl));
         assert(cl);
-        cl->sockfd = sockfd;
-        cl->client_addr = client_addr;
-        cl->client_addr_size = client_addr_size;
+        cl->sockfd = cl_sockfd;
+        cl->addr = cl_addr;
+        cl->addr_size = cl_addr_size;
 
         // add to list of clients
         append(srv->clients, cl);
@@ -232,6 +228,32 @@ void rpc_serve_all(rpc_server *srv) {
     debug_print("%s", "\nShutting down...\n");
     rpc_shutdown_server(srv);
     return;
+}
+
+int non_blocking_accept(int sockfd, struct sockaddr_in *client_addr,
+                        socklen_t *client_addr_size) {
+    int new_sockfd;
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(sockfd, &readfds);
+    struct timeval tv = {.tv_sec = 0, .tv_usec = 0};
+    int retval = select(sockfd + 1, &readfds, NULL, NULL, &tv);
+    if (retval == FAILED) {
+        perror("select");
+        exit(EXIT_FAILURE);
+    } else if (retval) {
+        // connection request received
+        new_sockfd = accept(sockfd, (struct sockaddr *)client_addr,
+                        client_addr_size);
+        if (new_sockfd < 0) {
+            perror("accept");
+            exit(EXIT_FAILURE);
+        }
+        return new_sockfd;
+    } else {
+        // no connection requests received
+        return FAILED;
+    }
 }
 
 void debug_print_client_info(rpc_client_state *cl) {
