@@ -159,16 +159,47 @@ int deserialise_int(unsigned char **buffer_ptr) {
 }
 
 unsigned char *serialise_size_t(unsigned char *buffer, size_t value) {
-    value = htonl(value);
-    memcpy(buffer, &value, sizeof(size_t));
-    return buffer + sizeof(size_t);
+    unsigned char *ptr = buffer;
+    unsigned int length = 0;
+
+    // calculate the number of bits required to represent the value
+    while ((value >> length) > 0) {
+        length++;
+    }
+
+    // encode the number of bits using unary code
+    for (unsigned int i = 0; i < length - 1; i++) {
+        *ptr++ = 0x00;
+    }
+    *ptr++ = 0x01;
+
+    // encode the value using binary code
+    for (unsigned int i = length - 1; i > 0; i--) {
+        *ptr++ = (value >> (i - 1)) & 0x01;
+    }
+
+    return ptr;
 }
 
 size_t deserialise_size_t(unsigned char **buffer_ptr) {
-    size_t value;
-    memcpy(&value, *buffer_ptr, sizeof(size_t));
-    *buffer_ptr += sizeof(size_t);
-    return ntohl(value);
+
+    // read the number of bits from the unary code
+    unsigned int length = 0;
+    unsigned char *ptr = *buffer_ptr;
+
+    while (*ptr == 0x00) {
+        length++;
+        ptr++;
+    }
+
+    // convert the binary code to a value
+    size_t value = 0;
+    for (unsigned int i = 0; i < length + 1; i++) {
+        value = (value << 1) | *ptr++;
+    }
+
+    *buffer_ptr = ptr;
+    return value;
 }
 
 unsigned char *serialise_string(unsigned char *buffer, const char *value) {
