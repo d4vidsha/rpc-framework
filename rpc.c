@@ -144,7 +144,7 @@ int rpc_register(rpc_server *srv, char *name, rpc_handler handler) {
         return FAILED;
     }
 
-    fprintf(stderr, "Registered \"%s\" function handler\n", name);
+    fprintf(stdout, "Registered \"%s\" function handler\n", name);
 
     return EXIT_SUCCESS;
 }
@@ -228,27 +228,27 @@ void print_client_info(rpc_client_state *cl) {
     if (addr.ss_family == AF_INET) {
         struct sockaddr_in *s = (struct sockaddr_in *)&addr;
         inet_ntop(AF_INET, &(s->sin_addr), ip_str, sizeof(ip_str));
-        fprintf(stderr, "Connected %s:%d on socket %d\n", ip_str,
+        fprintf(stdout, "Connected %s:%d on socket %d\n", ip_str,
                 ntohs(s->sin_port), cl->sockfd);
     } else if (addr.ss_family == AF_INET6) {
         struct sockaddr_in6 *s = (struct sockaddr_in6 *)&addr;
         inet_ntop(AF_INET6, &(s->sin6_addr), ip_str, sizeof(ip_str));
         if (strcmp(ip_str, "::1") == 0) {
-            fprintf(stderr, "Client %s:%d (localhost) connected on socket %d\n",
+            fprintf(stdout, "Client %s:%d (localhost) connected on socket %d\n",
                     ip_str, ntohs(s->sin6_port), cl->sockfd);
         } else {
-            fprintf(stderr, "Client %s:%d connected on socket %d\n", ip_str,
+            fprintf(stdout, "Client %s:%d connected on socket %d\n", ip_str,
                     ntohs(s->sin6_port), cl->sockfd);
         }
     } else {
-        fprintf(stderr, "Unknown address family\n");
+        fprintf(stdout, "Unknown address family\n");
     }
 }
 
 void handle_all_requests(rpc_server *srv, rpc_client_state *cl) {
     while (!is_socket_closed(cl->sockfd)) {
-        fprintf(stderr, "==================================================\n");
-        fprintf(stderr, "Waiting for request...\n");
+        fprintf(stdout, "==================================================\n");
+        fprintf(stdout, "Waiting for request...\n");
         handle_request(srv, cl);
     }
 }
@@ -256,14 +256,14 @@ void handle_all_requests(rpc_server *srv, rpc_client_state *cl) {
 void handle_request(rpc_server *srv, rpc_client_state *cl) {
     // check that socket is not closed
     if (is_socket_closed(cl->sockfd)) {
-        fprintf(stderr, "Client disconnected\n");
+        fprintf(stdout, "Client disconnected\n");
         return;
     }
 
     // receive rpc_message from the client and process it
     rpc_message *msg;
     if ((msg = receive_rpc_message(cl->sockfd)) == NULL) {
-        fprintf(stderr, "Client disconnected\n");
+        fprintf(stdout, "Client disconnected\n");
         return;
     }
 
@@ -271,8 +271,8 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
     switch (msg->operation) {
 
     case FIND:
-        fprintf(stderr, "Received FIND request\n");
-        fprintf(stderr, "Looking for handler: %s\n", msg->function_name);
+        fprintf(stdout, "Received FIND request\n");
+        fprintf(stdout, "Looking for handler: %s\n", msg->function_name);
 
         // get the handler from the hashtable
         rpc_handler h = hashtable_lookup(srv->handlers, msg->function_name);
@@ -280,17 +280,17 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
         // check if the handler exists
         int exists = h != NULL;
         if (exists) {
-            fprintf(stderr, "Handler found\n");
+            fprintf(stdout, "Handler found\n");
         } else {
-            fprintf(stderr, "Handler not found\n");
+            fprintf(stdout, "Handler not found\n");
         }
         new_msg = new_rpc_message(321, REPLY, new_string(msg->function_name),
                                   new_rpc_data(exists, 0, NULL));
         break;
 
     case CALL:
-        fprintf(stderr, "Received CALL request\n");
-        fprintf(stderr, "Calling handler: %s\n", msg->function_name);
+        fprintf(stdout, "Received CALL request\n");
+        fprintf(stdout, "Calling handler: %s\n", msg->function_name);
 
         // get the handler from the hashtable
         rpc_handler handler =
@@ -305,13 +305,13 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
         break;
 
     case REPLY:
-        fprintf(stderr, "Received REPLY request\n");
-        fprintf(stderr, "Doing nothing...\n");
+        fprintf(stdout, "Received REPLY request\n");
+        fprintf(stdout, "Doing nothing...\n");
         break;
 
     default:
-        fprintf(stderr, "Received unknown request\n");
-        fprintf(stderr, "Doing nothing...\n");
+        fprintf(stdout, "Received unknown request\n");
+        fprintf(stdout, "Doing nothing...\n");
         break;
     }
     // send the message to the server

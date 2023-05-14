@@ -17,12 +17,12 @@
 #include <unistd.h>
 
 int write_bytes(int sockfd, const unsigned char *bytes, int size) {
-    fprintf(stderr, "Writing %d bytes\n", size);
+    fprintf(stdout, "Writing %d bytes\n", size);
     print_bytes(bytes, size);
     int n = write(sockfd, bytes, size);
     if (n < 0) {
         if (errno == EPIPE) {
-            fprintf(stderr, "Connection closed by client\n");
+            fprintf(stdout, "Connection closed by client\n");
             close(sockfd);
         } else {
             perror("write");
@@ -33,13 +33,13 @@ int write_bytes(int sockfd, const unsigned char *bytes, int size) {
 }
 
 int read_bytes(int sockfd, unsigned char *buffer, int size) {
-    fprintf(stderr, "\nReading %d bytes\n", size);
+    fprintf(stdout, "\nReading %d bytes\n", size);
     int n = read(sockfd, buffer, size);
     if (n < 0) {
         perror("read");
         exit(EXIT_FAILURE);
     } else if (n == 0) {
-        fprintf(stderr, "Connection closed\n");
+        fprintf(stdout, "Connection closed\n");
         close(sockfd);
     } else {
         print_bytes(buffer, n);
@@ -91,13 +91,13 @@ int send_rpc_message(int sockfd, rpc_message *msg) {
     }
     n = deserialise_int(&size_ptr);
     if (n != size) {
-        fprintf(stderr,
+        fprintf(stdout,
                 "Error: sent %d bytes but received %d bytes before sending "
                 "message\n",
                 size, n);
         exit(EXIT_FAILURE);
     } else {
-        fprintf(stderr, "Looks good, sending payload...\n");
+        fprintf(stdout, "Looks good, sending payload...\n");
     }
 
     // send the message
@@ -117,7 +117,7 @@ rpc_message *receive_rpc_message(int sockfd) {
         return NULL;
     }
     size = deserialise_int(&size_ptr);
-    fprintf(stderr, "Sending back the expected size of %d bytes...\n", size);
+    fprintf(stdout, "Sending back the expected size of %d bytes...\n", size);
     if (write_bytes(sockfd, size_buffer, sizeof(size)) < 0) {
         return NULL;
     }
