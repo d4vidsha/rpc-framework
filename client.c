@@ -49,6 +49,20 @@ int main(int argc, char *argv[]) {
         rpc_data_free(response_data);
     }
 
+    printf("Task 1: Client correctly finds module on server\n");
+    printf("Attempting to find a function not registered on the server...\n");
+    rpc_handle *handle_sub2 = rpc_find(state, "sub2");
+    if (handle_sub2 != NULL) {
+        fprintf(stderr, "Function sub2 exists on server\n");
+        exit_code = 1;
+        goto cleanup;
+    } else {
+        printf("✅ Function sub2 does not exist on server\n");
+    }
+
+    printf("Task 2: Remote procedure is called correctly");
+    
+
     printf("We are done!\n");
 
 cleanup:
