@@ -26,7 +26,7 @@ int create_listening_socket(char *port) {
 
     // get address info with above parameters
     if ((s = getaddrinfo(NULL, port, &hints, &res)) != 0) {
-        fprintf(stdout, "getaddrinfo: %s\n", gai_strerror(s));
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
         exit(EXIT_FAILURE);
     }
 
@@ -65,7 +65,7 @@ int create_connection_socket(char *addr, char *port) {
 
     // get address info for addr
     if ((s = getaddrinfo(addr, port, &hints, &servinfo)) != 0) {
-        fprintf(stdout, "getaddrinfo: %s\n", gai_strerror(s));
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
         exit(EXIT_FAILURE);
     }
 
@@ -84,7 +84,7 @@ int create_connection_socket(char *addr, char *port) {
     }
 
     if (rp == NULL) {
-        fprintf(stdout, "Could not connect to server\n");
+        fprintf(stderr, "Could not connect to server\n");
         sockfd = FAILED;
     }
 
