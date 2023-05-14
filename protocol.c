@@ -159,6 +159,10 @@ int deserialise_int(unsigned char **buffer_ptr) {
 }
 
 unsigned char *serialise_size_t(unsigned char *buffer, size_t value) {
+    // we cannot take 0 as a valid value for Elias gamma coding so we 
+    // increment all values by 1 and decrement them when deserialising
+    value++;
+
     unsigned char *ptr = buffer;
     unsigned int length = 0;
 
@@ -182,11 +186,10 @@ unsigned char *serialise_size_t(unsigned char *buffer, size_t value) {
 }
 
 size_t deserialise_size_t(unsigned char **buffer_ptr) {
-
-    // read the number of bits from the unary code
-    unsigned int length = 0;
     unsigned char *ptr = *buffer_ptr;
+    unsigned int length = 0;
 
+    // decode the number of bits using unary code
     while (*ptr == 0x00) {
         length++;
         ptr++;
@@ -199,7 +202,7 @@ size_t deserialise_size_t(unsigned char **buffer_ptr) {
     }
 
     *buffer_ptr = ptr;
-    return value;
+    return value - 1;
 }
 
 unsigned char *serialise_string(unsigned char *buffer, const char *value) {
