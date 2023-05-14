@@ -1,0 +1,3 @@
+init 6001
+register echo2 echo2
+serve

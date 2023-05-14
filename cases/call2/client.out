@@ -1,0 +1,10 @@
+rpc_init_client: instance 0, addr ::1, port 6000
+rpc_find: instance 0, add2
+rpc_find: instance 0, returned handle for function add2
+rpc_find: instance 0, echo2
+rpc_find: instance 0, returned handle for function echo2
+rpc_call: instance 0, calling echo2, data1 = 0, data2 sha256 = 55a10ed...
+rpc_call: instance 0, call of echo2 received data1 = 0, data2 sha256 = 55a10ed
+rpc_call: instance 0, calling add2, with arguments 80 -40...
+rpc_call: instance 0, call of add2 received result 40
+rpc_close_client: instance 0

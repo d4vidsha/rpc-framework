@@ -1,0 +1,5 @@
+init ::1 6000
+find add2
+call add2 add2
+1 1
+close

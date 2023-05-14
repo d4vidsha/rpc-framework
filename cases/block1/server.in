@@ -1,0 +1,4 @@
+init 6000
+register sleep sleep
+register add2 add2
+serve

@@ -1,0 +1,9 @@
+init ::1 6000
+find add2
+find echo2
+call echo2 echo2
+0 9
+COMP30023
+call add2 add2
+80 -40
+close

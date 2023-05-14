@@ -1,0 +1,9 @@
+rpc_init_server: instance 0, port 6000
+rpc_register: instance 0, sleep (handler) as sleep
+rpc_register: instance 0, add2 (handler) as add2
+rpc_serve_all: instance 0
+handler sleep2: before, 4 seconds
+handler sleep2: before, 1 seconds
+handler sleep2: after, 1 seconds
+handler add2_i8: arguments 1 and 1
+handler sleep2: after, 4 seconds

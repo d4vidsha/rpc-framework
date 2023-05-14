@@ -1,0 +1,8 @@
+rpc_init_client: instance 0, addr ::1, port 6001
+rpc_find: instance 0, add2
+rpc_find: instance 0, wasn't able to find function add2
+rpc_find: instance 0, echo2
+rpc_find: instance 0, returned handle for function echo2
+rpc_call: instance 0, calling echo2, data1 = 1337, data2 sha256 = ba7816b...
+rpc_call: instance 0, call of echo2 received data1 = 1337, data2 sha256 = ba7816b
+rpc_close_client: instance 0

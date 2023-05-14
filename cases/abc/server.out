@@ -1,0 +1,4 @@
+rpc_init_server: instance 0, port 6001
+rpc_register: instance 0, echo2 (handler) as echo2
+rpc_serve_all: instance 0
+handler echo2: data1 1337, data2 sha256 ba7816b

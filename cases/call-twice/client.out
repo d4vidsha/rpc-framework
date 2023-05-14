@@ -1,0 +1,8 @@
+rpc_init_client: instance 0, addr ::1, port 6001
+rpc_find: instance 0, add2
+rpc_find: instance 0, returned handle for function add2
+rpc_call: instance 0, calling add2, with arguments 127 127...
+rpc_call: instance 0, call of add2 received result 254
+rpc_call: instance 0, calling add2, with arguments -127 -127...
+rpc_call: instance 0, call of add2 received result -254
+rpc_close_client: instance 0

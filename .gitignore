@@ -2,6 +2,8 @@
 *.a
 rpc-server
 rpc-client
+server
+client
 
 .vscode
 *.code-workspace
