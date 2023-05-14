@@ -95,13 +95,6 @@ void print_handler(void *data);
  */
 rpc_handle *new_rpc_handle(const char *name);
 
-/*
- * Free an RPC handle.
- *
- * @param handle The RPC handle to free.
- */
-void free_rpc_handle_internal(void *handle);
-
 struct rpc_server {
     int port;
     int sockfd;
@@ -367,11 +360,10 @@ struct rpc_client {
     char *addr;
     int port;
     int sockfd;
-    list_t *handles;
 };
 
 struct rpc_handle {
-    char *name;
+    char name[MAX_NAME_LENGTH + 1];
 };
 
 rpc_client *rpc_init_client(char *addr, int port) {
@@ -397,9 +389,6 @@ rpc_client *rpc_init_client(char *addr, int port) {
     // create a socket
     cl->sockfd = create_connection_socket(addr, sport);
 
-    // create a list of handles
-    cl->handles = create_empty_list();
-
     return cl;
 }
 
@@ -423,7 +412,6 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
     rpc_handle *h = NULL;
     if (reply->operation == REPLY && reply->data->data1 == TRUE) {
         h = new_rpc_handle(name);
-        append(cl->handles, h);
     }
 
     // free the reply
@@ -433,6 +421,7 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
 }
 
 rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
+    rpc_data *data = NULL;
 
     // check if any of the parameters are NULL
     if (cl == NULL || h == NULL || payload == NULL) {
@@ -448,13 +437,13 @@ rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
 
     // send the reply back to the client
     if (reply->operation == REPLY) {
-        return reply->data;
+        data = reply->data;
     }
 
     // free the reply but not the data
     free_rpc_message(reply, NULL);
 
-    return NULL;
+    return data;
 }
 
 void rpc_close_client(rpc_client *cl) {
@@ -469,9 +458,6 @@ void rpc_close_client(rpc_client *cl) {
 
     // free the address
     free(cl->addr);
-
-    // free the list of handles's internal data
-    free_list(cl->handles, free_rpc_handle_internal);
 
     // free the client state
     free(cl);
@@ -497,11 +483,6 @@ void print_handler(void *data) {
 rpc_handle *new_rpc_handle(const char *name) {
     rpc_handle *handle = (rpc_handle *)malloc(sizeof(*handle));
     assert(handle);
-    handle->name = new_string(name);
+    strncpy(handle->name, name, MAX_NAME_LENGTH);
     return handle;
-}
-
-void free_rpc_handle_internal(void *handle) {
-    rpc_handle *h = (rpc_handle *)handle;
-    free(h->name);
 }

@@ -15,6 +15,7 @@
 #define FAILED -1
 
 #define MAX_PORT_LENGTH 5
+#define MAX_NAME_LENGTH 1000
 
 #define HASHTABLE_SIZE 100
 

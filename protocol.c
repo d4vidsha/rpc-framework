@@ -245,7 +245,7 @@ rpc_data *new_rpc_data(int data1, size_t data2_len, void *data2) {
 
 rpc_message *new_rpc_message(int request_id, int operation, char *function_name,
                              rpc_data *data) {
-    rpc_message *message = (rpc_message *)malloc(sizeof(*message));
+     rpc_message *message = (rpc_message *)malloc(sizeof(*message));
     assert(message);
     message->request_id = request_id;
     message->operation = operation;
