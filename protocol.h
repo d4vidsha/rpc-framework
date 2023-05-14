@@ -52,7 +52,7 @@ int read_bytes(int sockfd, unsigned char *buffer, int size);
  * @param buffer: buffer to print
  * @param len: length of buffer
  */
-void print_bytes(const unsigned char *buffer, size_t len);
+void debug_print_bytes(const unsigned char *buffer, size_t len);
 
 /*
  * Send an rpc_message through a socket.

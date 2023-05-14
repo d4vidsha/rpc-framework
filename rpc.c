@@ -78,7 +78,7 @@ int is_socket_closed(int sockfd);
  *
  * @param cl The client state.
  */
-void print_client_info(rpc_client_state *cl);
+void debug_print_client_info(rpc_client_state *cl);
 
 /*
  * Print the handler.
@@ -144,7 +144,7 @@ int rpc_register(rpc_server *srv, char *name, rpc_handler handler) {
         return FAILED;
     }
 
-    fprintf(stdout, "Registered \"%s\" function handler\n", name);
+    debug_print("Registered \"%s\" function handler\n", name);
 
     return EXIT_SUCCESS;
 }
@@ -204,18 +204,19 @@ void rpc_serve_all(rpc_server *srv) {
         append(srv->clients, cl);
 
         // print the client connection information
-        print_client_info(cl);
+        debug_print("%s", "--------------------------------------------------\n");
+        debug_print_client_info(cl);
 
         // handle requests from the client
         handle_all_requests(srv, cl);
     }
 
-    printf("\nShutting down...\n");
+    debug_print("%s", "\nShutting down...\n");
     rpc_shutdown_server(srv);
     return;
 }
 
-void print_client_info(rpc_client_state *cl) {
+void debug_print_client_info(rpc_client_state *cl) {
     struct sockaddr_storage addr;
     socklen_t addr_len = sizeof(addr);
     char ip_str[INET6_ADDRSTRLEN];
@@ -228,27 +229,27 @@ void print_client_info(rpc_client_state *cl) {
     if (addr.ss_family == AF_INET) {
         struct sockaddr_in *s = (struct sockaddr_in *)&addr;
         inet_ntop(AF_INET, &(s->sin_addr), ip_str, sizeof(ip_str));
-        fprintf(stdout, "Connected %s:%d on socket %d\n", ip_str,
+        debug_print("Connected %s:%d on socket %d\n", ip_str,
                 ntohs(s->sin_port), cl->sockfd);
     } else if (addr.ss_family == AF_INET6) {
         struct sockaddr_in6 *s = (struct sockaddr_in6 *)&addr;
         inet_ntop(AF_INET6, &(s->sin6_addr), ip_str, sizeof(ip_str));
         if (strcmp(ip_str, "::1") == 0) {
-            fprintf(stdout, "Client %s:%d (localhost) connected on socket %d\n",
+            debug_print("Client %s:%d (localhost) connected on socket %d\n",
                     ip_str, ntohs(s->sin6_port), cl->sockfd);
         } else {
-            fprintf(stdout, "Client %s:%d connected on socket %d\n", ip_str,
+            debug_print("Client %s:%d connected on socket %d\n", ip_str,
                     ntohs(s->sin6_port), cl->sockfd);
         }
     } else {
-        fprintf(stdout, "Unknown address family\n");
+        debug_print("%s", "Unknown address family\n");
     }
 }
 
 void handle_all_requests(rpc_server *srv, rpc_client_state *cl) {
     while (!is_socket_closed(cl->sockfd)) {
-        fprintf(stdout, "==================================================\n");
-        fprintf(stdout, "Waiting for request...\n");
+        debug_print("%s", "==================================================\n");
+        debug_print("%s", "Waiting for request...\n");
         handle_request(srv, cl);
     }
 }
@@ -256,14 +257,14 @@ void handle_all_requests(rpc_server *srv, rpc_client_state *cl) {
 void handle_request(rpc_server *srv, rpc_client_state *cl) {
     // check that socket is not closed
     if (is_socket_closed(cl->sockfd)) {
-        fprintf(stdout, "Client disconnected\n");
+        debug_print("%s", "Client disconnected\n");
         return;
     }
 
     // receive rpc_message from the client and process it
     rpc_message *msg;
     if ((msg = receive_rpc_message(cl->sockfd)) == NULL) {
-        fprintf(stdout, "Client disconnected\n");
+        debug_print("%s", "Client disconnected\n");
         return;
     }
 
@@ -271,8 +272,8 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
     switch (msg->operation) {
 
     case FIND:
-        fprintf(stdout, "Received FIND request\n");
-        fprintf(stdout, "Looking for handler: %s\n", msg->function_name);
+        debug_print("%s", "Received FIND request\n");
+        debug_print("Looking for handler: %s\n", msg->function_name);
 
         // get the handler from the hashtable
         rpc_handler h = hashtable_lookup(srv->handlers, msg->function_name);
@@ -280,17 +281,17 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
         // check if the handler exists
         int exists = h != NULL;
         if (exists) {
-            fprintf(stdout, "Handler found\n");
+            debug_print("%s", "Handler found\n");
         } else {
-            fprintf(stdout, "Handler not found\n");
+            debug_print("%s", "Handler not found\n");
         }
         new_msg = new_rpc_message(321, REPLY, new_string(msg->function_name),
                                   new_rpc_data(exists, 0, NULL));
         break;
 
     case CALL:
-        fprintf(stdout, "Received CALL request\n");
-        fprintf(stdout, "Calling handler: %s\n", msg->function_name);
+        debug_print("%s", "Received CALL request\n");
+        debug_print("Calling handler: %s\n", msg->function_name);
 
         // get the handler from the hashtable
         rpc_handler handler =
@@ -305,13 +306,13 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
         break;
 
     case REPLY:
-        fprintf(stdout, "Received REPLY request\n");
-        fprintf(stdout, "Doing nothing...\n");
+        debug_print("%s", "Received REPLY request\n");
+        debug_print("%s", "Doing nothing...\n");
         break;
 
     default:
-        fprintf(stdout, "Received unknown request\n");
-        fprintf(stdout, "Doing nothing...\n");
+        debug_print("%s", "Received unknown request\n");
+        debug_print("%s", "Doing nothing...\n");
         break;
     }
     // send the message to the server

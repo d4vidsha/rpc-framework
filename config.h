@@ -9,6 +9,14 @@
 #define CONFIG_H
 
 /* #defines ================================================================= */
+#define DEBUG FALSE
+
+// Debugging macro from: https://stackoverflow.com/a/1644898
+#define debug_print(fmt, ...)                                                  \
+    do {                                                                       \
+        if (DEBUG)                                                             \
+            fprintf(stderr, fmt, __VA_ARGS__);                                 \
+    } while (0)
 
 #define TRUE 1
 #define FALSE 0

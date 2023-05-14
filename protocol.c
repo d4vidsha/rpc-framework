@@ -17,12 +17,12 @@
 #include <unistd.h>
 
 int write_bytes(int sockfd, const unsigned char *bytes, int size) {
-    fprintf(stdout, "Writing %d bytes\n", size);
-    print_bytes(bytes, size);
+    debug_print("Writing %d bytes\n", size);
+    debug_print_bytes(bytes, size);
     int n = write(sockfd, bytes, size);
     if (n < 0) {
         if (errno == EPIPE) {
-            fprintf(stdout, "Connection closed by client\n");
+            debug_print("%s", "Connection closed by client\n");
             close(sockfd);
         } else {
             perror("write");
@@ -33,40 +33,40 @@ int write_bytes(int sockfd, const unsigned char *bytes, int size) {
 }
 
 int read_bytes(int sockfd, unsigned char *buffer, int size) {
-    fprintf(stdout, "\nReading %d bytes\n", size);
+    debug_print("\nReading %d bytes\n", size);
     int n = read(sockfd, buffer, size);
     if (n < 0) {
         perror("read");
         exit(EXIT_FAILURE);
     } else if (n == 0) {
-        fprintf(stdout, "Connection closed\n");
+        debug_print("%s", "Connection closed\n");
         close(sockfd);
     } else {
-        print_bytes(buffer, n);
+        debug_print_bytes(buffer, n);
     }
     return n;
 }
 
-void print_bytes(const unsigned char *buffer, size_t len) {
-    printf("Serialised message (%ld bytes):\n", len);
+void debug_print_bytes(const unsigned char *buffer, size_t len) {
+    debug_print("Serialised message (%ld bytes):\n", len);
     int box_size = 16;
     for (int i = 0; i < len; i += box_size) {
         for (int j = 0; j < box_size; j++) {
             if (i + j < len)
-                printf("%02X ", buffer[i + j]);
+                debug_print("%02X ", buffer[i + j]);
             else
-                printf("   ");
+                debug_print("%s", "   ");
         }
-        printf("  ");
+        debug_print("%s", "  ");
         for (int j = 0; j < box_size; j++) {
             if (i + j < len) {
                 if (isprint(buffer[i + j]))
-                    printf("%c", buffer[i + j]);
+                    debug_print("%c", buffer[i + j]);
                 else
-                    printf(".");
+                    debug_print("%s", ".");
             }
         }
-        printf("\n");
+        debug_print("%s", "\n");
     }
 }
 
@@ -91,13 +91,12 @@ int send_rpc_message(int sockfd, rpc_message *msg) {
     }
     n = deserialise_int(&size_ptr);
     if (n != size) {
-        fprintf(stdout,
-                "Error: sent %d bytes but received %d bytes before sending "
-                "message\n",
-                size, n);
+        debug_print("Error: sent %d bytes but received %d bytes before sending "
+                    "message\n",
+                    size, n);
         exit(EXIT_FAILURE);
     } else {
-        fprintf(stdout, "Looks good, sending payload...\n");
+        debug_print("%s", "Looks good, sending payload...\n");
     }
 
     // send the message
@@ -117,7 +116,7 @@ rpc_message *receive_rpc_message(int sockfd) {
         return NULL;
     }
     size = deserialise_int(&size_ptr);
-    fprintf(stdout, "Sending back the expected size of %d bytes...\n", size);
+    debug_print("Sending back the expected size of %d bytes...\n", size);
     if (write_bytes(sockfd, size_buffer, sizeof(size)) < 0) {
         return NULL;
     }
