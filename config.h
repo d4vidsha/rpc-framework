@@ -9,7 +9,7 @@
 #define CONFIG_H
 
 /* #defines ================================================================= */
-#define DEBUG TRUE
+#define DEBUG FALSE
 
 // Debugging macro from: https://stackoverflow.com/a/1644898
 #define debug_print(fmt, ...)                                                  \
