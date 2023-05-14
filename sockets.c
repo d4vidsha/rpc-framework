@@ -55,7 +55,7 @@ int create_listening_socket(char *port) {
 }
 
 int create_connection_socket(char *addr, char *port) {
-    int s, sockfd;
+    int s, sockfd = FAILED;
     struct addrinfo hints, *servinfo, *rp;
 
     // create address we're going to connect to
@@ -84,8 +84,8 @@ int create_connection_socket(char *addr, char *port) {
     }
 
     if (rp == NULL) {
-        fprintf(stderr, "Could not connect\n");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "Could not connect to server\n");
+        sockfd = FAILED;
     }
 
     freeaddrinfo(servinfo);

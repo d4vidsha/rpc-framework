@@ -390,7 +390,11 @@ rpc_client *rpc_init_client(char *addr, int port) {
     sprintf(sport, "%d", port);
 
     // create a socket
-    cl->sockfd = create_connection_socket(addr, sport);
+    if ((cl->sockfd = create_connection_socket(addr, sport)) == FAILED) {
+        free(cl->addr);
+        free(cl);
+        return NULL;
+    }
 
     return cl;
 }
