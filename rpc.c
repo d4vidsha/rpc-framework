@@ -326,11 +326,14 @@ int is_socket_closed(int sockfd) {
     char buf[1];
     ssize_t n = recv(sockfd, buf, sizeof(buf), MSG_PEEK);
     if (n == 0) {
+        // socket is closed
+        close(sockfd);
         return 1;
     } else if (n == -1) {
         perror("recv");
         return 0;
     } else {
+        // socket is open
         return 0;
     }
 }
@@ -461,8 +464,6 @@ void rpc_close_client(rpc_client *cl) {
 
     // free the client state
     free(cl);
-
-    return;
 }
 
 void rpc_data_free(rpc_data *data) {

@@ -69,14 +69,6 @@ int create_connection_socket(char *addr, char *port) {
         exit(EXIT_FAILURE);
     }
 
-    // create socket
-    sockfd = socket(servinfo->ai_family, servinfo->ai_socktype,
-                    servinfo->ai_protocol);
-    if (sockfd < 0) {
-        perror("socket");
-        exit(EXIT_FAILURE);
-    }
-
     // connect to remote host
     for (rp = servinfo; rp != NULL; rp = rp->ai_next) {
         sockfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
