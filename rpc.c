@@ -311,7 +311,7 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
         break;
 
     default:
-        debug_print("%s", "Received unknown request\n");
+        debug_print("Received unknown request: %d\n", msg->operation);
         debug_print("%s", "Doing nothing...\n");
         break;
     }
