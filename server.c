@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct arguments {
     char *port;
@@ -24,8 +25,13 @@ int main(int argc, char *argv[]) {
 
     args_t *args = parse_args(argc, argv);
 
+    if (args->port == NULL) {
+        args->port = "3000";
+    }
+
     // convert port to int
     int port = atoi(args->port);
+    free(args);
 
     state = rpc_init_server(port);
     if (state == NULL) {
