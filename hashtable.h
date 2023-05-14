@@ -61,7 +61,7 @@ void hashtable_destroy(hashtable_t *hashtable, void (*free_data)(void *));
  * @param key The key of the item.
  * @param data The data of the item.
  */
-void hashtable_insert(hashtable_t *hashtable, const char *key, void *data);
+void hashtable_insert(hashtable_t *hashtable, char *key, void *data);
 
 /*
  * Lookup an item in the hashtable by key.
@@ -70,7 +70,7 @@ void hashtable_insert(hashtable_t *hashtable, const char *key, void *data);
  * @param key The key of the item.
  * @return A pointer to the item, or NULL if not found.
  */
-void *hashtable_lookup(hashtable_t *hashtable, const char *key);
+void *hashtable_lookup(hashtable_t *hashtable, char *key);
 
 /*
  * Remove an item from the hashtable.
@@ -80,8 +80,17 @@ void *hashtable_lookup(hashtable_t *hashtable, const char *key);
  * @param free_data The function to free the data of the item. NULL if no
  * freeing is required.
  */
-void hashtable_remove(hashtable_t *hashtable, const char *key,
+void hashtable_remove(hashtable_t *hashtable, char *key,
                       void (*free_data)(void *));
+
+/*
+ * Frees an item.
+ *
+ * @param item The item to free.
+ * @param free_data The function to free the data of the item. NULL if no
+ * freeing is required.
+ */
+void hashtable_item_free(item_t *item, void (*free_data)(void *));
 
 /*
  * Prints the hashtable.

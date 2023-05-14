@@ -6,6 +6,7 @@
    Author: David Sha
 ============================================================================= */
 #include "hashtable.h"
+#include "config.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,33 +42,36 @@ void hashtable_destroy(hashtable_t *hashtable, void (*free_data)(void *)) {
         while (curr) {
             prev = curr;
             curr = curr->next;
-            if (free_data) {
-                free_data(prev->data);
-            }
-            free(prev);
+            hashtable_item_free(prev, free_data);
         }
     }
     free(hashtable->table);
     free(hashtable);
 }
 
-void hashtable_insert(hashtable_t *hashtable, const char *key, void *data) {
+void hashtable_insert(hashtable_t *hashtable, char *key, void *data) {
     assert(hashtable && key && data);
     unsigned long index = hash(key) % hashtable->size;
     item_t *new = (item_t *)malloc(sizeof(*new));
     assert(new);
-    new->key = key;
+    new->key = (char *)malloc(strlen(key) + 1);
+    assert(new->key);
+    strcpy((char *)new->key, key);
     new->data = data;
     new->next = hashtable->table[index];
     hashtable->table[index] = new;
 }
 
-void *hashtable_lookup(hashtable_t *hashtable, const char *key) {
+void *hashtable_lookup(hashtable_t *hashtable, char *key) {
     assert(hashtable && key);
     unsigned long index = hash(key) % hashtable->size;
     item_t *curr = hashtable->table[index];
+    int cmp;
+    debug_print("Looking up hashtable[%lu]\n", index);
     while (curr) {
-        if (strcmp(curr->key, key) == 0) {
+        cmp = strcmp(curr->key, key);
+        debug_print("%s<->%s = %d\n", curr->key, key, cmp);
+        if (cmp == 0) {
             return curr->data;
         }
         curr = curr->next;
@@ -75,7 +79,7 @@ void *hashtable_lookup(hashtable_t *hashtable, const char *key) {
     return NULL;
 }
 
-void hashtable_remove(hashtable_t *hashtable, const char *key,
+void hashtable_remove(hashtable_t *hashtable, char *key,
                       void (*free_data)(void *)) {
     assert(hashtable && key);
     unsigned long index = hash(key) % hashtable->size;
@@ -87,15 +91,21 @@ void hashtable_remove(hashtable_t *hashtable, const char *key,
             } else {
                 hashtable->table[index] = curr->next;
             }
-            if (free_data) {
-                free_data(curr->data);
-            }
-            free(curr);
+            hashtable_item_free(curr, free_data);
             return;
         }
         prev = curr;
         curr = curr->next;
     }
+}
+
+void hashtable_item_free(item_t *item, void (*free_data)(void *)) {
+    assert(item);
+    free((char *)item->key);
+    if (free_data) {
+        free_data(item->data);
+    }
+    free(item);
 }
 
 void hashtable_print(hashtable_t *hashtable, void (*print_data)(void *)) {
