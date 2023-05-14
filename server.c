@@ -10,12 +10,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+typedef struct arguments {
+    char *port;
+} args_t;
+
+char *read_flag(char *flag, const char *const *valid_args, int argc,
+                char *argv[]);
+args_t *parse_args(int argc, char *argv[]);
 rpc_data *add2_i8(rpc_data *);
 
 int main(int argc, char *argv[]) {
     rpc_server *state;
 
-    state = rpc_init_server(3000);
+    args_t *args = parse_args(argc, argv);
+
+    // convert port to int
+    int port = atoi(args->port);
+
+    state = rpc_init_server(port);
     if (state == NULL) {
         fprintf(stderr, "Failed to init\n");
         exit(EXIT_FAILURE);
@@ -60,4 +72,53 @@ rpc_data *add2_i8(rpc_data *in) {
     out->data2_len = 0;
     out->data2 = NULL;
     return out;
+}
+
+char *read_flag(char *flag, const char *const *valid_args, int argc,
+                char *argv[]) {
+    /*  Given a flag and a location in the argument list, return the
+        argument following the flag provided that it is in the set of
+        valid arguments. Otherwise, return NULL.
+    */
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], flag) == 0) {
+
+            // if valid_args is NULL, then we don't care about the argument
+            if (valid_args == NULL) {
+                return argv[i + 1];
+            } else {
+
+                // check if the argument is valid
+                int j = 0;
+                while (valid_args[j] != NULL) {
+                    if (strcmp(argv[i + 1], valid_args[j]) == 0) {
+                        return argv[i + 1];
+                    }
+                    j++;
+                }
+
+                // if we get here, the argument was not valid
+                printf("Invalid argument for flag %s. Must be one of: ", flag);
+                j = 0;
+                while (valid_args[j] != NULL) {
+                    printf("%s ", valid_args[j]);
+                    j++;
+                }
+                printf("\n");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+    return NULL;
+}
+
+args_t *parse_args(int argc, char *argv[]) {
+    /*  Given a list of arguments, parse them and return all flags and
+        arguments in a struct.
+    */
+    args_t *args;
+    args = (args_t *)malloc(sizeof(*args));
+    assert(args);
+    args->port = read_flag("-p", NULL, argc, argv);
+    return args;
 }
