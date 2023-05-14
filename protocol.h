@@ -208,4 +208,18 @@ rpc_message *new_rpc_message(int request_id, int operation, char *function_name,
  */
 void free_rpc_message(rpc_message *message, void (*free_data)(rpc_data *));
 
+/*
+ * Print an RPC data.   
+ *
+ * @param data The RPC data to print.
+ */
+void debug_print_rpc_data(rpc_data *data);
+
+/*
+ * Print an RPC message.
+ *
+ * @param message The RPC message to print.
+ */
+void debug_print_rpc_message(rpc_message *message);
+
 #endif

@@ -127,6 +127,7 @@ rpc_message *receive_rpc_message(int sockfd) {
         return NULL;
     }
     rpc_message *msg = deserialise_rpc_message(&ptr);
+    debug_print_rpc_message(msg);
 
     return msg;
 }
@@ -259,4 +260,22 @@ void free_rpc_message(rpc_message *message, void (*free_data)(rpc_data *)) {
         free_data(message->data);
     }
     free(message);
+}
+
+void debug_print_rpc_data(rpc_data *data) {
+    debug_print(" |- data1: %d\n", data->data1);
+    debug_print(" |- data2_len: %zu\n", data->data2_len);
+    debug_print("%s", " |- data2: ");
+    for (size_t i = 0; i < data->data2_len; i++) {
+        debug_print("%02x ", ((unsigned char *)data->data2)[i]);
+    }
+    debug_print("%s", "\n");
+}
+
+void debug_print_rpc_message(rpc_message *message) {
+    debug_print("%s", "rpc_message\n");
+    debug_print(" |- request_id: %d\n", message->request_id);
+    debug_print(" |- operation: %d\n", message->operation);
+    debug_print(" |- function_name: %s\n", message->function_name);
+    debug_print_rpc_data(message->data);
 }
