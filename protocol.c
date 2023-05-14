@@ -7,7 +7,6 @@
 ============================================================================= */
 #include "protocol.h"
 #include "config.h"
-#include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
@@ -146,16 +145,19 @@ rpc_message *request(int sockfd, rpc_message *msg) {
 }
 
 unsigned char *serialise_int(unsigned char *buffer, int value) {
-    value = htonl(value);
-    memcpy(buffer, &value, sizeof(int));
-    return buffer + sizeof(int);
+    buffer[0] = value >> 24;
+    buffer[1] = value >> 16;
+    buffer[2] = value >> 8;
+    buffer[3] = value;
+    return buffer + 4;
 }
 
 int deserialise_int(unsigned char **buffer_ptr) {
-    int value;
-    memcpy(&value, *buffer_ptr, sizeof(int));
-    *buffer_ptr += sizeof(int);
-    return ntohl(value);
+    unsigned char *buffer = *buffer_ptr;
+    int value = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) |
+                buffer[3];
+    *buffer_ptr += 4;
+    return value;
 }
 
 unsigned char *serialise_size_t(unsigned char *buffer, size_t value) {
