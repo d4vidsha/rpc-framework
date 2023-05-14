@@ -426,7 +426,7 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
     // send message to the server and wait for a reply
     rpc_data *data = new_rpc_data(0, 0, NULL);
     rpc_message *reply =
-        request(cl->sockfd, new_rpc_message(123, FIND, new_string(name), data));
+        request(cl->sockfd, new_rpc_message(0, FIND, new_string(name), data));
     rpc_data_free(data);
     if (reply == NULL) {
         return NULL;
@@ -454,7 +454,7 @@ rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
 
     // use socket to send a message to the server
     rpc_message *reply = request(
-        cl->sockfd, new_rpc_message(123, CALL, new_string(h->name), payload));
+        cl->sockfd, new_rpc_message(0, CALL, new_string(h->name), payload));
     if (reply == NULL) {
         return NULL;
     }
