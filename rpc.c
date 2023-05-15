@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 
+/* signal handling ========================================================== */
 static volatile sig_atomic_t keep_running = 1;
 
 /*
@@ -33,6 +34,7 @@ static void sig_handler(int _) {
     keep_running = 0;
 }
 
+/* helper function declarations ============================================= */
 typedef struct {
     int sockfd;
     struct sockaddr_in addr;
@@ -88,13 +90,6 @@ void rpc_shutdown_server(rpc_server *srv);
 void debug_print_client_info(rpc_client_state *cl);
 
 /*
- * Print the handler.
- *
- * @param data The handler to print.
- */
-void print_handler(void *data);
-
-/*
  * Create a new RPC handle.
  *
  * @param name: name of RPC handle
@@ -102,6 +97,7 @@ void print_handler(void *data);
  */
 rpc_handle *new_rpc_handle(const char *name);
 
+/* server =================================================================== */
 struct rpc_server {
     int port;
     int sockfd;
@@ -212,6 +208,7 @@ void rpc_serve_all(rpc_server *srv) {
     return;
 }
 
+/* server helper functions ================================================== */
 void debug_print_client_info(rpc_client_state *cl) {
     struct sockaddr_storage addr;
     socklen_t addr_len = sizeof(addr);
@@ -335,6 +332,7 @@ void rpc_shutdown_server(rpc_server *srv) {
     srv = NULL;
 }
 
+/* client =================================================================== */
 struct rpc_client {
     char *addr;
     int port;
@@ -455,11 +453,7 @@ void rpc_data_free(rpc_data *data) {
     free(data);
 }
 
-void print_handler(void *data) {
-    rpc_handler h = (rpc_handler)data;
-    printf("%p\n", h);
-}
-
+/* client helper functions ================================================== */
 rpc_handle *new_rpc_handle(const char *name) {
     rpc_handle *handle = (rpc_handle *)malloc(sizeof(*handle));
     assert(handle);
