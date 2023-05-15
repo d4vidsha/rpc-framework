@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -g
-LDLIBS=
+LDLIBS=-lpthread
 
 SRC=rpc.c hashtable.c linkedlist.c sockets.c protocol.c
 OBJ = $(SRC:.c=.o)
