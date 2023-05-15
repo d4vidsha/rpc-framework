@@ -1,6 +1,6 @@
 /* =============================================================================
    protocol.h
-
+   
    Everything related to the protocol.
 
    Author: David Sha
@@ -20,7 +20,8 @@ typedef struct {
     enum {
         FIND,
         CALL,
-        REPLY,
+        REPLY_SUCCESS,
+        REPLY_FAILURE,
     } operation;
     char *function_name;
     rpc_data *data;

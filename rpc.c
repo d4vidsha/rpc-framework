@@ -87,7 +87,8 @@ rpc_message *handle_find_request(rpc_server *srv, rpc_message *msg);
  * 
  * @param srv The server state.
  * @param msg The message from the client.
- * @return The response to the client.
+ * @return The response to the client. If the call fails, the operation
+ * field of the response will be set to REPLY_FAILURE.
  */
 rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg);
 
@@ -314,8 +315,13 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
             new_msg = handle_call_request(srv, msg);
             break;
 
-        case REPLY:
-            debug_print("%s", "Received REPLY request\n");
+        case REPLY_SUCCESS:
+            debug_print("%s", "Received REPLY_SUCCESS request\n");
+            debug_print("%s", "Doing nothing...\n");
+            break;
+
+        case REPLY_FAILURE:
+            debug_print("%s", "Received REPLY_FAILURE request\n");
             debug_print("%s", "Doing nothing...\n");
             break;
 
@@ -323,6 +329,12 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
             debug_print("Received unknown request: %d\n", msg->operation);
             debug_print("%s", "Doing nothing...\n");
             break;
+    }
+
+    // check if handling the request failed
+    if (new_msg == NULL) {
+        debug_print("%s", "Handling request failed. Not sending reply...\n");
+        return;
     }
 
     // send the message to the server
@@ -337,17 +349,22 @@ rpc_message *handle_find_request(rpc_server *srv, rpc_message *msg) {
     debug_print("Handler %s\n", exists ? "found" : "not found");
 
     // create a new message to send back to the client
-    return new_rpc_message(msg->request_id, REPLY, new_string(msg->function_name), new_rpc_data(exists, 0, NULL));
+    return new_rpc_message(msg->request_id, REPLY_SUCCESS, new_string(msg->function_name), new_rpc_data(exists, 0, NULL));
 }
 
 rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg) {
     rpc_handler handler = hashtable_lookup(srv->handlers, msg->function_name);
 
+    // if the handler does not exist, respond with failure
+    if (handler == NULL) {
+        return new_rpc_message(msg->request_id, REPLY_FAILURE, new_string(msg->function_name), new_rpc_data(0, 0, NULL));
+    }
+
     // run the handler
     rpc_data *new_data = handler(msg->data);
 
     // create a new message to send back to the client
-    return new_rpc_message(msg->request_id, REPLY, new_string(msg->function_name), new_data);
+    return new_rpc_message(msg->request_id, REPLY_SUCCESS, new_string(msg->function_name), new_data);
 }
 
 void rpc_shutdown_server(rpc_server *srv) {
@@ -438,7 +455,7 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
 
     // check if the handler exists
     rpc_handle *h = NULL;
-    if (reply->operation == REPLY && reply->data->data1 == TRUE) {
+    if (reply->operation == REPLY_SUCCESS && reply->data->data1 == TRUE) {
         h = new_rpc_handle(name);
     }
 
@@ -463,8 +480,12 @@ rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
 
     // send the reply back to the client
     rpc_data *data = NULL;
-    if (reply->operation == REPLY) {
+    if (reply->operation == REPLY_SUCCESS) {
         data = reply->data;
+    } else if (reply->operation == REPLY_FAILURE) {
+        debug_print("%s", "Handler not found\n");
+    } else {
+        debug_print("%s", "Invalid reply operation\n");
     }
 
     // free the reply but not the data
