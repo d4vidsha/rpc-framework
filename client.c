@@ -23,6 +23,12 @@ args_t *parse_args(int argc, char *argv[]);
 int main(int argc, char *argv[]) {
 
     args_t *args = parse_args(argc, argv);
+    if (args->ip == NULL) {
+        args->ip = "::1";
+    }
+    if (args->port == NULL) {
+        args->port = "3000";
+    }
 
     // convert port to int
     int port = atoi(args->port);
