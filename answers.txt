@@ -1,30 +1,68 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Name: David Sha
 Login ID: dasha (unimelb), d4vidsha (gitlab)
 Student ID: 1273615
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-3.2 Planning task: When you design your protocol, ask yourself the following questions. Think of the answer for this particular project, and separately for the case of a "real world" RPC server.
 
+================================================================================
 1. Should the server accept calls from everyone, or just a subset of users?
-It depends on the use case. If the server is used for a public service, such as an ecommerce website, then it should accept calls from everyone. If the service is private, such as in the case of assessing this project, then it should only expect to receive calls from a limited number of clients.
+--------------------------------------------------------------------------------
+It depends on the use case. If the server is used for a public service, such 
+as an ecommerce website, then it should accept calls from everyone. If the 
+service is private, such as in the case of assessing this project, then it 
+should only expect to receive calls from a limited number of clients.
 
-2. Should authentication etc. be provided by the RPC framework, or by the functions that use the RPC framework?
-The RPC framework should handle the authentication so that a standardised authentication process can be used across all functions that use the framework. If additional authentication is required, then the functions that use the RPC framework can implement their own authentication processes.
+================================================================================
+2. Should authentication etc. be provided by the RPC framework, or by the 
+functions that use the RPC framework?
+--------------------------------------------------------------------------------
+The RPC framework should handle the authentication so that a standardised 
+authentication process can be used across all functions that use the 
+framework. If additional authentication is required, then the functions 
+that use the RPC framework can implement their own authentication processes.
 
+================================================================================
 3. What transport layer protocol should be used? What are the trade-offs?
-TCP should be used over UDP. For the RPC framework, it is critical that packets are received in the correct order, and that no packets are lost. TCP provides this functionality. The trade-off for using TCP is that it is slower than UDP, as it requires a three-way handshake to establish a connection, and it also requires the server to keep track of the state of each connection. This is a worthwhile trade-off however.
+--------------------------------------------------------------------------------
+TCP should be used over UDP. For the RPC framework, it is critical that 
+packets are received in the correct order, and that no packets are lost. 
+TCP provides this functionality. The trade-off for using TCP is that it 
+is slower than UDP, as it requires a three-way handshake to establish a 
+connection, and it also requires the server to keep track of the state of 
+each connection. This is a worthwhile trade-off however.
 
+================================================================================
 4. In which function(s) should the socket(s) be created?
-Sockets should be created in the `rpc_init_server` and `rpc_init_client` functions. Sockets should be created before any RPC calls are made.
+--------------------------------------------------------------------------------
+Sockets should be created in the `rpc_init_server` and `rpc_init_client` 
+functions. Sockets should be created before any RPC calls are made.
 
-5. Should `rpc_client` and `rpc_server` be allocated dynamically or statically? What are the implications for the client and server code?
-`rpc_client` and `rpc_server` should be allocated dynamically. If they were allocated statically, only one client and one server could be created, limiting the functionality of the RPC framework.
+================================================================================
+5. Should `rpc_client` and `rpc_server` be allocated dynamically or 
+statically? What are the implications for the client and server code?
+--------------------------------------------------------------------------------
+`rpc_client` and `rpc_server` should be allocated dynamically. If they 
+were allocated statically, only one client and one server could be created, 
+limiting the functionality of the RPC framework.
 
-6. What happens if one host uses big-endian byte order and the other uses little-endian? How does that relate to "network byte order"?
-If one host uses big-endian and the other uses little-endian, then the data will be interpreted incorrectly. Network byte order is big-endian, so the data should be converted to big-endian before being sent over the network.
+================================================================================
+6. What happens if one host uses big-endian byte order and the other uses 
+little-endian? How does that relate to "network byte order"?
+--------------------------------------------------------------------------------
+If one host uses big-endian and the other uses little-endian, then the data 
+will be interpreted incorrectly. Network byte order is big-endian, so the 
+data should be converted to big-endian before being sent over the network.
+--------------------------------------------------------------------------------
 
-3.3 Protocol: Design and document a simple application layer protocol for this RPC system.
 
-We will use a single `rpc_message` struct to represent both requests and responses.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Protocol: 
+Design and document a simple application layer protocol for this RPC system.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We will use a single `rpc_message` struct to represent both requests 
+and responses.
 
 Protocol steps:
 1. Client sends `rpc_message` to server.
@@ -33,9 +71,16 @@ Protocol steps:
 4. Client receives `rpc_message`.
 
 The `rpc_message` struct will contain the following fields:
-- `int request_id`: The ID of the request. Useful for matching requests to responses.
-- `enum op`: The operation can be either `FIND`, `CALL`, `REPLY_SUCCESS` or `REPLY_FAILURE`.
-- `char *function_name`: The name of the function to be called or returned.
-- `rpc_data *data`: The data to be passed to the function or returned by the function.
+- `int request_id`:      The ID of the request. Useful for matching 
+                         requests to responses.
+- `enum op`:             The operation can be either FIND, CALL, 
+                         REPLY_SUCCESS or REPLY_FAILURE.
+- `char *function_name`: The name of the function to be called 
+                         or returned.
+- `rpc_data *data`:      The data to be passed to the function or returned 
+                         by the function.
 
-This `rpc_message` struct will be serialised into a byte array and sent over the network. When serialising, we will need to ensure that there are no padding or endianness.
+This `rpc_message` struct will be serialised into a byte array and sent 
+over the network. When serialising, we will need to ensure that there 
+are no padding or endianness.
+--------------------------------------------------------------------------------
