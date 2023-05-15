@@ -137,7 +137,10 @@ rpc_server *rpc_init_server(int port) {
     // allocate memory for the server state
     rpc_server *srv;
     srv = (rpc_server *)malloc(sizeof(*srv));
-    assert(srv);
+    if (srv == NULL) {
+        perror("malloc");
+        return NULL;
+    }
 
     // convert port from int to a string
     char sport[MAX_PORT_LENGTH + 1];
@@ -158,6 +161,11 @@ int rpc_register(rpc_server *srv, char *name, rpc_handler handler) {
         return FAILED;
     }
 
+    // length of name must be between 1 and MAX_NAME_LENGTH inclusive
+    if (strlen(name) > MAX_NAME_LENGTH || strlen(name) < 1) {
+        return FAILED;
+    }
+
     // if the handler already exists, remove it
     if (hashtable_lookup(srv->handlers, name) != NULL) {
         hashtable_remove(srv->handlers, name, NULL);
@@ -166,11 +174,8 @@ int rpc_register(rpc_server *srv, char *name, rpc_handler handler) {
     // add handler to a hashtable
     hashtable_insert(srv->handlers, name, handler);
 
-    // get the handler back from the hashtable
-    rpc_handler h = hashtable_lookup(srv->handlers, name);
-
     // check if the handler was successfully added
-    if (h == NULL) {
+    if (hashtable_lookup(srv->handlers, name) == NULL) {
         return FAILED;
     }
 
@@ -340,11 +345,8 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
 }
 
 rpc_message *handle_find_request(rpc_server *srv, rpc_message *msg) {
-    // get the handler from the hashtable
-    rpc_handler h = hashtable_lookup(srv->handlers, msg->function_name);
-
-    // check if the handler exists
-    int exists = (h != NULL);
+    // check handler exists in hashtable
+    int exists = (hashtable_lookup(srv->handlers, msg->function_name) != NULL);
     debug_print("Handler %s\n", exists ? "found" : "not found");
 
     // create a new message to send back to the client
@@ -352,10 +354,10 @@ rpc_message *handle_find_request(rpc_server *srv, rpc_message *msg) {
 }
 
 rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg) {
-    rpc_handler h = hashtable_lookup(srv->handlers, msg->function_name);
+    rpc_handler handler = hashtable_lookup(srv->handlers, msg->function_name);
 
     // run the handler
-    rpc_data *new_data = h(msg->data);
+    rpc_data *new_data = handler(msg->data);
 
     // create a new message to send back to the client
     return new_rpc_message(msg->request_id, REPLY, new_string(msg->function_name), new_data);
@@ -467,8 +469,6 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
 }
 
 rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
-    rpc_data *data = NULL;
-
     // check if any of the parameters are NULL
     if (cl == NULL || h == NULL || payload == NULL) {
         return NULL;
@@ -482,6 +482,7 @@ rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
     }
 
     // send the reply back to the client
+    rpc_data *data = NULL;
     if (reply->operation == REPLY) {
         data = reply->data;
     }
