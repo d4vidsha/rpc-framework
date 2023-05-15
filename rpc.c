@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 
 /* signal handling ========================================================== */
 static volatile sig_atomic_t keep_running = 1;
@@ -40,6 +41,21 @@ typedef struct {
     struct sockaddr_in addr;
     socklen_t addr_size;
 } rpc_client_state;
+
+typedef struct {
+    rpc_server *srv;
+    rpc_client_state *cl;
+} handle_all_requests_args;
+
+/*
+ * Handle all requests from the client in a separate thread.
+ * 
+ * @param arg The arguments to the thread which in this case
+ * contains the server state and the server's client state.
+ * @return NULL on success.
+ * @note This function is called by pthread_create.
+ */
+void *handle_all_requests_thread(void *arg);
 
 /*
  * Handle all requests from the client.
@@ -103,6 +119,7 @@ struct rpc_server {
     int sockfd;
     hashtable_t *handlers;
     list_t *clients;
+    list_t *threads;
 };
 
 rpc_server *rpc_init_server(int port) {
@@ -124,6 +141,7 @@ rpc_server *rpc_init_server(int port) {
     srv->sockfd = create_listening_socket(sport);
     srv->handlers = hashtable_create(HASHTABLE_SIZE);
     srv->clients = create_empty_list();
+    srv->threads = create_empty_list();
 
     return srv;
 }
@@ -199,8 +217,21 @@ void rpc_serve_all(rpc_server *srv) {
         debug_print("%s", "--------------------------------------------------\n");
         debug_print_client_info(cl);
 
-        // handle requests from the client
-        handle_all_requests(srv, cl);
+        // handle requests from the client in a new thread
+        pthread_t *thread = (pthread_t *)malloc(sizeof(*thread));
+        handle_all_requests_args *args =
+            (handle_all_requests_args *)malloc(sizeof(*args));
+        assert(args);
+        args->srv = srv;
+        args->cl = cl;
+        int rc = pthread_create(thread, NULL, handle_all_requests_thread, args);
+        if (rc != 0) {
+            perror("pthread_create");
+            exit(EXIT_FAILURE);
+        }
+
+        // add thread to list of threads
+        append(srv->threads, thread);
     }
 
     debug_print("%s", "\nShutting down...\n");
@@ -237,6 +268,13 @@ void debug_print_client_info(rpc_client_state *cl) {
     } else {
         debug_print("%s", "Unknown address family\n");
     }
+}
+
+void *handle_all_requests_thread(void *arg) {
+    handle_all_requests_args *args = (handle_all_requests_args *)arg;
+    handle_all_requests(args->srv, args->cl);
+    free(args);
+    return NULL;
 }
 
 void handle_all_requests(rpc_server *srv, rpc_client_state *cl) {
@@ -318,14 +356,22 @@ void rpc_shutdown_server(rpc_server *srv) {
         return;
     }
 
+    // wait for all threads to finish
+    node_t *curr = srv->threads->head;
+    while (curr != NULL) {
+        pthread_join(*(pthread_t *)curr->data, NULL);
+        curr = curr->next;
+    }
+
     // close the socket
     close(srv->sockfd);
 
     // free the hashtable
     hashtable_destroy(srv->handlers, NULL);
 
-    // free the list of clients
+    // free the lists
     free_list(srv->clients, free);
+    free_list(srv->threads, free);
 
     // free the server state
     free(srv);
