@@ -128,7 +128,7 @@ rpc_server *rpc_init_server(int port) {
     rpc_server *srv;
     srv = (rpc_server *)malloc(sizeof(*srv));
     if (srv == NULL) {
-        perror("malloc");
+        debug_print("%s", "malloc failed\n");
         return NULL;
     }
 
@@ -138,7 +138,11 @@ rpc_server *rpc_init_server(int port) {
 
     // initialise the server state
     srv->port = port;
-    srv->sockfd = create_listening_socket(sport);
+    if ((srv->sockfd = create_listening_socket(sport)) == FAILED) {
+        debug_print("%s", "create_listening_socket failed\n");
+        free(srv);
+        return NULL;
+    }
     srv->handlers = hashtable_create(HASHTABLE_SIZE);
     srv->clients = create_empty_list();
     srv->threads = create_empty_list();
@@ -190,8 +194,8 @@ void rpc_serve_all(rpc_server *srv) {
     while (keep_running) {
         // listen on socket, incoming connection requests will be queued
         if (listen(srv->sockfd, BACKLOG) < 0) {
-            perror("listen");
-            exit(EXIT_FAILURE);
+            debug_print("%s", "Listen failed. Stopping server...\n");
+            break;
         }
 
         // accept a connection non-blocking using select
@@ -219,19 +223,16 @@ void rpc_serve_all(rpc_server *srv) {
 
         // handle requests from the client in a new thread
         pthread_t *thread = (pthread_t *)malloc(sizeof(*thread));
-        handle_all_requests_args *args =
-            (handle_all_requests_args *)malloc(sizeof(*args));
+        append(srv->threads, thread);
+        handle_all_requests_args *args = (handle_all_requests_args *)malloc(sizeof(*args));
         assert(args);
         args->srv = srv;
         args->cl = cl;
         int rc = pthread_create(thread, NULL, handle_all_requests_thread, args);
         if (rc != 0) {
-            perror("pthread_create");
-            exit(EXIT_FAILURE);
+            debug_print("%s", "Creating thread failed. Stopping server...\n");
+            break;
         }
-
-        // add thread to list of threads
-        append(srv->threads, thread);
     }
 
     debug_print("%s", "\nShutting down...\n");
@@ -246,7 +247,7 @@ void debug_print_client_info(rpc_client_state *cl) {
     char ip_str[INET6_ADDRSTRLEN];
 
     if (getpeername(cl->sockfd, (struct sockaddr *)&addr, &addr_len) == -1) {
-        perror("getpeername");
+        debug_print("%s", "getpeername failed\n");
         return;
     }
 

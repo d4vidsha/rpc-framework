@@ -28,27 +28,27 @@ int create_listening_socket(char *port) {
     // get address info with above parameters
     if ((s = getaddrinfo(NULL, port, &hints, &res)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
-        exit(EXIT_FAILURE);
+        return FAILED;
     }
 
     // create socket
     sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     if (sockfd < 0) {
-        perror("socket");
-        exit(EXIT_FAILURE);
+        debug_print("%s", "Error creating socket\n");
+        return FAILED;
     }
 
     // set socket to be reusable
     re = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &re, sizeof re) < 0) {
-        perror("setsockopt");
-        exit(EXIT_FAILURE);
+        debug_print("%s", "Error setting socket options\n");
+        return FAILED;
     }
 
     // bind address to socket
     if (bind(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
-        perror("bind");
-        exit(EXIT_FAILURE);
+        debug_print("%s", "Error binding socket\n");
+        return FAILED;
     }
 
     freeaddrinfo(res);
@@ -66,8 +66,8 @@ int create_connection_socket(char *addr, char *port) {
 
     // get address info for addr
     if ((s = getaddrinfo(addr, port, &hints, &servinfo)) != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
-        exit(EXIT_FAILURE);
+        debug_print("getaddrinfo: %s\n", gai_strerror(s));
+        return FAILED;
     }
 
     // connect to remote host
@@ -85,7 +85,7 @@ int create_connection_socket(char *addr, char *port) {
     }
 
     if (rp == NULL) {
-        fprintf(stderr, "Could not connect to server\n");
+        debug_print("%s", "Could not connect to server\n");
         sockfd = FAILED;
     }
 
@@ -102,15 +102,15 @@ int non_blocking_accept(int sockfd, struct sockaddr_in *client_addr,
     struct timeval tv = {.tv_sec = 0, .tv_usec = 0};
     int retval = select(sockfd + 1, &readfds, NULL, NULL, &tv);
     if (retval == FAILED) {
-        perror("select");
-        exit(EXIT_FAILURE);
+        debug_print("%s", "Error in select\n");
+        return FAILED;
     } else if (retval) {
         // connection request received
         new_sockfd = accept(sockfd, (struct sockaddr *)client_addr,
                         client_addr_size);
         if (new_sockfd < 0) {
-            perror("accept");
-            exit(EXIT_FAILURE);
+            debug_print("%s", "Error accepting connection\n");
+            return FAILED;
         }
         return new_sockfd;
     } else {
@@ -127,7 +127,7 @@ int is_socket_closed(int sockfd) {
         close(sockfd);
         return 1;
     } else if (n == -1) {
-        perror("recv");
+        debug_print("%s", "Error in recv\n");
         return 0;
     } else {
         // socket is open

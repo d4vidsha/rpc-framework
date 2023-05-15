@@ -22,11 +22,10 @@ int write_bytes(int sockfd, const unsigned char *bytes, int size) {
     if (n < 0) {
         if (errno == EPIPE) {
             debug_print("%s", "Connection closed by client\n");
-            close(sockfd);
         } else {
-            perror("write");
-            exit(EXIT_FAILURE);
+            debug_print("%s", "Error writing to socket\n");
         }
+        close(sockfd);
     }
     return n;
 }
@@ -35,8 +34,8 @@ int read_bytes(int sockfd, unsigned char *buffer, int size) {
     debug_print("\nReading %d bytes\n", size);
     int n = read(sockfd, buffer, size);
     if (n < 0) {
-        perror("read");
-        exit(EXIT_FAILURE);
+        debug_print("%s", "Error reading from socket\n");
+        close(sockfd);
     } else if (n == 0) {
         debug_print("%s", "Connection closed\n");
         close(sockfd);
@@ -94,7 +93,7 @@ int send_rpc_message(int sockfd, rpc_message *msg) {
         debug_print("Error: sent %d bytes but received %d bytes before sending "
                     "message\n",
                     size, n);
-        exit(EXIT_FAILURE);
+        return FAILED;
     } else {
         debug_print("%s", "Looks good, sending payload...\n");
     }
