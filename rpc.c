@@ -191,7 +191,7 @@ void rpc_serve_all(rpc_server *srv) {
         // listen on socket, incoming connection requests will be queued
         if (listen(srv->sockfd, BACKLOG) < 0) {
             perror("listen");
-            break;
+            exit(EXIT_FAILURE);
         }
 
         // accept a connection non-blocking using select
@@ -227,7 +227,7 @@ void rpc_serve_all(rpc_server *srv) {
         int rc = pthread_create(thread, NULL, handle_all_requests_thread, args);
         if (rc != 0) {
             perror("pthread_create");
-            break;
+            exit(EXIT_FAILURE);
         }
 
         // add thread to list of threads
