@@ -17,10 +17,10 @@ $(RPC_SYSTEM_A): $(OBJ)
 	ar rcs $@ $^
 
 $(RPC_SERVER): server.c $(RPC_SYSTEM_A)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 $(RPC_CLIENT): client.c $(RPC_SYSTEM_A)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 format:
 	clang-format -style=file -i *.c *.h
