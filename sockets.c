@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/select.h>
 
 int create_listening_socket(char *port) {
     int re, s, sockfd;
@@ -90,4 +91,46 @@ int create_connection_socket(char *addr, char *port) {
 
     freeaddrinfo(servinfo);
     return sockfd;
+}
+
+int non_blocking_accept(int sockfd, struct sockaddr_in *client_addr,
+                        socklen_t *client_addr_size) {
+    int new_sockfd;
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(sockfd, &readfds);
+    struct timeval tv = {.tv_sec = 0, .tv_usec = 0};
+    int retval = select(sockfd + 1, &readfds, NULL, NULL, &tv);
+    if (retval == FAILED) {
+        perror("select");
+        exit(EXIT_FAILURE);
+    } else if (retval) {
+        // connection request received
+        new_sockfd = accept(sockfd, (struct sockaddr *)client_addr,
+                        client_addr_size);
+        if (new_sockfd < 0) {
+            perror("accept");
+            exit(EXIT_FAILURE);
+        }
+        return new_sockfd;
+    } else {
+        // no connection requests received
+        return FAILED;
+    }
+}
+
+int is_socket_closed(int sockfd) {
+    char buf[1];
+    ssize_t n = recv(sockfd, buf, sizeof(buf), MSG_PEEK);
+    if (n == 0) {
+        // socket is closed
+        close(sockfd);
+        return 1;
+    } else if (n == -1) {
+        perror("recv");
+        return 0;
+    } else {
+        // socket is open
+        return 0;
+    }
 }

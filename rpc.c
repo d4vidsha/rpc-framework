@@ -16,13 +16,11 @@
 #include "linkedlist.h"
 #include "protocol.h"
 #include "sockets.h"
-#include <arpa/inet.h>
 #include <assert.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/select.h>
 #include <unistd.h>
 
 static volatile sig_atomic_t keep_running = 1;
@@ -81,27 +79,6 @@ rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg);
  * @param srv The server state.
  */
 void rpc_shutdown_server(rpc_server *srv);
-
-/*
- * Accept a connection from a client in a non-blocking manner. This assumes
- * this function is run within a loop.
- * 
- * @param sockfd The socket file descriptor.
- * @param client_addr The client's address that will be populated by this
- * function call.
- * @param client_addr_size The size of the client's address that is populated
- * during this function call.
- * @return The client's socket file descriptor, or -1 if no client is connected.
- */
-int non_blocking_accept(int sockfd, struct sockaddr_in *client_addr, socklen_t *client_addr_size);
-
-/*
- * Checks if a socket is closed.
- *
- * @param sockfd The socket file descriptor.
- * @return 1 if the socket is closed, 0 otherwise.
- */
-int is_socket_closed(int sockfd);
 
 /*
  * Print client's IP address and port number.
@@ -235,32 +212,6 @@ void rpc_serve_all(rpc_server *srv) {
     return;
 }
 
-int non_blocking_accept(int sockfd, struct sockaddr_in *client_addr,
-                        socklen_t *client_addr_size) {
-    int new_sockfd;
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(sockfd, &readfds);
-    struct timeval tv = {.tv_sec = 0, .tv_usec = 0};
-    int retval = select(sockfd + 1, &readfds, NULL, NULL, &tv);
-    if (retval == FAILED) {
-        perror("select");
-        exit(EXIT_FAILURE);
-    } else if (retval) {
-        // connection request received
-        new_sockfd = accept(sockfd, (struct sockaddr *)client_addr,
-                        client_addr_size);
-        if (new_sockfd < 0) {
-            perror("accept");
-            exit(EXIT_FAILURE);
-        }
-        return new_sockfd;
-    } else {
-        // no connection requests received
-        return FAILED;
-    }
-}
-
 void debug_print_client_info(rpc_client_state *cl) {
     struct sockaddr_storage addr;
     socklen_t addr_len = sizeof(addr);
@@ -340,8 +291,8 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
 
     // send the message to the server
     send_rpc_message(cl->sockfd, new_msg);
-    free_rpc_message(msg, rpc_data_free);
-    free_rpc_message(new_msg, rpc_data_free);
+    rpc_message_free(msg, rpc_data_free);
+    rpc_message_free(new_msg, rpc_data_free);
 }
 
 rpc_message *handle_find_request(rpc_server *srv, rpc_message *msg) {
@@ -361,22 +312,6 @@ rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg) {
 
     // create a new message to send back to the client
     return new_rpc_message(msg->request_id, REPLY, new_string(msg->function_name), new_data);
-}
-
-int is_socket_closed(int sockfd) {
-    char buf[1];
-    ssize_t n = recv(sockfd, buf, sizeof(buf), MSG_PEEK);
-    if (n == 0) {
-        // socket is closed
-        close(sockfd);
-        return 1;
-    } else if (n == -1) {
-        perror("recv");
-        return 0;
-    } else {
-        // socket is open
-        return 0;
-    }
 }
 
 void rpc_shutdown_server(rpc_server *srv) {
@@ -463,7 +398,7 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
     }
 
     // free the reply
-    free_rpc_message(reply, rpc_data_free);
+    rpc_message_free(reply, rpc_data_free);
 
     return h;
 }
@@ -488,7 +423,7 @@ rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
     }
 
     // free the reply but not the data
-    free_rpc_message(reply, NULL);
+    rpc_message_free(reply, NULL);
 
     return data;
 }

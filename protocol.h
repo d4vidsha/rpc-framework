@@ -206,7 +206,7 @@ rpc_message *new_rpc_message(int request_id, int operation, char *function_name,
  *
  * @param message The RPC message to free.
  */
-void free_rpc_message(rpc_message *message, void (*free_data)(rpc_data *));
+void rpc_message_free(rpc_message *message, void (*free_data)(rpc_data *));
 
 /*
  * Print an RPC data.   

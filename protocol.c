@@ -136,10 +136,10 @@ rpc_message *request(int sockfd, rpc_message *msg) {
 
     // send message
     if (send_rpc_message(sockfd, msg) == FAILED) {
-        free_rpc_message(msg, NULL);
+        rpc_message_free(msg, NULL);
         return NULL;
     }
-    free_rpc_message(msg, NULL);
+    rpc_message_free(msg, NULL);
 
     // return response
     return receive_rpc_message(sockfd);
@@ -294,7 +294,7 @@ rpc_message *new_rpc_message(int request_id, int operation, char *function_name,
     return message;
 }
 
-void free_rpc_message(rpc_message *message, void (*free_data)(rpc_data *)) {
+void rpc_message_free(rpc_message *message, void (*free_data)(rpc_data *)) {
     free(message->function_name);
     if (free_data) {
         free_data(message->data);
