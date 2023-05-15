@@ -29,31 +29,9 @@ int main(int argc, char *argv[]) {
     int port = atoi(args->port);
     free(args);
 
-    printf("Testing RPC\n");
-    printf("\nrpc_init_server: %p\n", rpc_init_server);
     rpc_server *state;
+
     state = rpc_init_server(port);
-    if (state != NULL) {
-        printf("✅ is initialised\n");
-    } 
-    // currently cannot check for when state == NULL since malloc
-
-
-    printf("\nrpc_register: %p\n", rpc_register);
-    // test override
-    if (rpc_register(state, "op", add2_i8) == -1) {
-        printf("❌ failed\n");
-    } else {
-        printf("✅ is initialised\n");
-    }
-    if (rpc_register(state, "op", sub2_i8) == -1) {
-        printf("❌ failed\n");
-    } else {
-        printf("✅ successfully overrides\n");
-    }
-
-    printf("\nrpc_serve_all: %p\n", rpc_serve_all);
-
     if (state == NULL) {
         fprintf(stderr, "Failed to init\n");
         exit(EXIT_FAILURE);
@@ -65,6 +43,44 @@ int main(int argc, char *argv[]) {
     }
 
     rpc_serve_all(state);
+
+
+    // printf("Testing RPC\n");
+    // printf("\nrpc_init_server: %p\n", rpc_init_server);
+    // rpc_server *state;
+    // state = rpc_init_server(port);
+    // if (state != NULL) {
+    //     printf("✅ is initialised\n");
+    // } 
+    // // currently cannot check for when state == NULL since malloc
+
+
+    // printf("\nrpc_register: %p\n", rpc_register);
+    // // test override
+    // if (rpc_register(state, "op", add2_i8) == -1) {
+    //     printf("❌ failed\n");
+    // } else {
+    //     printf("✅ is initialised\n");
+    // }
+    // if (rpc_register(state, "op", sub2_i8) == -1) {
+    //     printf("❌ failed\n");
+    // } else {
+    //     printf("✅ successfully overrides\n");
+    // }
+
+    // printf("\nrpc_serve_all: %p\n", rpc_serve_all);
+
+    // if (state == NULL) {
+    //     fprintf(stderr, "Failed to init\n");
+    //     exit(EXIT_FAILURE);
+    // }
+
+    // if (rpc_register(state, "add2", add2_i8) == -1) {
+    //     fprintf(stderr, "Failed to register add2\n");
+    //     exit(EXIT_FAILURE);
+    // }
+
+    // rpc_serve_all(state);
 
     return 0;
 }
