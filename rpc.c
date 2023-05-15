@@ -219,7 +219,6 @@ void rpc_serve_all(rpc_server *srv) {
 
         // handle requests from the client in a new thread
         pthread_t *thread = (pthread_t *)malloc(sizeof(*thread));
-        append(srv->threads, thread);
         handle_all_requests_args *args =
             (handle_all_requests_args *)malloc(sizeof(*args));
         assert(args);
@@ -230,6 +229,9 @@ void rpc_serve_all(rpc_server *srv) {
             perror("pthread_create");
             break;
         }
+
+        // add thread to list of threads
+        append(srv->threads, thread);
     }
 
     debug_print("%s", "\nShutting down...\n");
