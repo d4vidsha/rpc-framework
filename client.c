@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
         goto cleanup;
     }
 
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 5; i++) {
         // sleep for half a second
         usleep(500000);
         /* Prepare request */
@@ -95,7 +95,7 @@ cleanup:
         free(handle_add2);
     }
 
-    
+
 
     rpc_close_client(state);
     state = NULL;
