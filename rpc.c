@@ -114,6 +114,14 @@ void debug_print_client_info(rpc_client_state *cl);
  */
 rpc_handle *new_rpc_handle(const char *name);
 
+/*
+ * Is the RPC handle malformed?
+ * 
+ * @param data: RPC data
+ * @return 1 if malformed, 0 otherwise.
+ */
+int is_malformed(rpc_data *data);
+
 /* server =================================================================== */
 struct rpc_server {
     int port;
@@ -370,6 +378,13 @@ rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg) {
     // run the handler
     rpc_data *new_data = handler(msg->data);
 
+    // is data malformed
+    debug_print("%s", "Data returned by handler:\n");
+    debug_print_rpc_data(new_data);
+    if (new_data == NULL || is_malformed(new_data)) {
+        return create_failure_message();
+    }
+
     // create a new message to send back to the client
     return new_rpc_message(msg->request_id, REPLY_SUCCESS,
                            new_string(msg->function_name), new_data);
@@ -479,19 +494,7 @@ rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
         return NULL;
     }
 
-    // check that payload is not malformed
-    if (payload->data2_len > 0) {
-        // check that data2 is not NULL
-        if (payload->data2 == NULL) {
-            return NULL;
-        }
-    } else if (payload->data2_len == 0) {
-        // check that data2 is NULL
-        if (payload->data2 != NULL) {
-            return NULL;
-        }
-    } else {
-        // data2_len is negative which is impossible
+    if (is_malformed(payload)) {
         return NULL;
     }
 
@@ -551,4 +554,30 @@ rpc_handle *new_rpc_handle(const char *name) {
     assert(handle);
     strncpy(handle->name, name, MAX_NAME_LENGTH);
     return handle;
+}
+
+int is_malformed(rpc_data *data) {
+    if (data == NULL) {
+        return TRUE;
+    }
+
+    if (data->data2 == NULL && data->data2_len != 0) {
+        return TRUE;
+    }
+
+    if (data->data2_len > 0) {
+        // check that data2 is not NULL
+        if (data->data2 == NULL) {
+            return TRUE;
+        }
+    } else if (data->data2_len == 0) {
+        // check that data2 is NULL
+        if (data->data2 != NULL) {
+            return TRUE;
+        }
+    } else {
+        // data2_len is negative which is impossible
+        return TRUE;
+    }
+    return FALSE;
 }

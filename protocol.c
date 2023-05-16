@@ -52,7 +52,7 @@ int write_bytes(int sockfd, unsigned char *buf, size_t size) {
     size_t total_bytes_written = 0;
     while (total_bytes_written != size) {
         assert(total_bytes_written < size);
-        size_t bytes_written = write(sockfd, buf + total_bytes_written,
+        int bytes_written = write(sockfd, buf + total_bytes_written,
                                      size - total_bytes_written);
         if (bytes_written < 0) {
             if (errno == EPIPE) {
@@ -63,7 +63,7 @@ int write_bytes(int sockfd, unsigned char *buf, size_t size) {
             close(sockfd);
             return FAILED;
         } else {
-            debug_print("Wrote %ld bytes\n", bytes_written);
+            debug_print("Wrote %d bytes\n", bytes_written);
             debug_print_bytes(buf + total_bytes_written, bytes_written);
         }
         total_bytes_written += bytes_written;
@@ -77,7 +77,7 @@ int read_bytes(int sockfd, unsigned char *buf, size_t size) {
     size_t total_bytes_read = 0;
     while (total_bytes_read != size) {
         assert(total_bytes_read < size);
-        size_t bytes_read =
+        int bytes_read =
             read(sockfd, buf + total_bytes_read, size - total_bytes_read);
         if (bytes_read < 0) {
             debug_print("%s", "Error reading from socket\n");
@@ -88,7 +88,7 @@ int read_bytes(int sockfd, unsigned char *buf, size_t size) {
             close(sockfd);
             return FAILED;
         } else {
-            debug_print("Read %ld bytes\n", bytes_read);
+            debug_print("Read %d bytes\n", bytes_read);
             debug_print_bytes(buf + total_bytes_read, bytes_read);
         }
         total_bytes_read += bytes_read;
@@ -405,9 +405,17 @@ rpc_message *create_failure_message() {
 }
 
 void debug_print_rpc_data(rpc_data *data) {
+    if (data == NULL) {
+        debug_print("%s", "rpc_data is NULL\n");
+        return;
+    }
     debug_print(" |- data1: %d\n", data->data1);
     debug_print(" |- data2_len: %zu\n", data->data2_len);
     debug_print("%s", " |- data2: ");
+    if (data->data2 == NULL) {
+        debug_print("%s", "NULL\n");
+        return;
+    }
     for (size_t i = 0; i < data->data2_len; i++) {
         debug_print("%02x ", ((unsigned char *)data->data2)[i]);
     }
