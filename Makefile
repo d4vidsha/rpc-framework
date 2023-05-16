@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -g
-LDLIBS=-lpthread -lm
+LDFLAGS=-lpthread -lm
 
 SRC=rpc.c hashtable.c linkedlist.c sockets.c protocol.c
 OBJ = $(SRC:.c=.o)
@@ -17,10 +17,10 @@ $(RPC_SYSTEM_A): $(OBJ)
 	ar rcs $@ $^
 
 $(RPC_SERVER): server.c $(RPC_SYSTEM_A)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 $(RPC_CLIENT): client.c $(RPC_SYSTEM_A)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 format:
 	clang-format -style=file -i *.c *.h
