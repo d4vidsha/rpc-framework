@@ -118,6 +118,7 @@ void debug_print_bytes(const unsigned char *buf, size_t len) {
 }
 
 int send_rpc_message(int sockfd, rpc_message *msg) {
+    int result = FAILED;
 
     // convert message to serialised form
     buffer_t *buf = new_buffer(INITIAL_BUFFER_SIZE);
@@ -127,37 +128,41 @@ int send_rpc_message(int sockfd, rpc_message *msg) {
     size_t size = buf->next;
     size_t gamma_size = gamma_code_length(MAX_MESSAGE_BYTE_SIZE);
     buffer_t *size_buf = new_buffer(gamma_size);
+    buffer_t *n_buf = new_buffer(gamma_size);
     serialise_size_t(size_buf, size);
     if (write_bytes(sockfd, size_buf->data, size_buf->size) < 0) {
-        return FAILED;
+        goto cleanup;
     }
 
     // read that the number of bytes sent is correct
-    buffer_t *n_buf = new_buffer(gamma_size);
     if (read_bytes(sockfd, n_buf->data, n_buf->size) <= 0) {
-        return FAILED;
+        goto cleanup;
     }
     size_t n = deserialise_size_t(n_buf);
     if (n != size) {
         debug_print("Error: sent %ld bytes but received %ld bytes before "
                     "sending message\n",
                     size, n);
-        return FAILED;
+        goto cleanup;
     } else {
         debug_print("%s", "Looks good, sending payload...\n");
     }
 
     // send the message
     if (write_bytes(sockfd, buf->data, buf->next) < 0) {
-        return FAILED;
+        goto cleanup;
     }
 
+    // success if we get here
+    result = 0;
+
+cleanup:
     // free buffers
     buffer_free(buf);
     buffer_free(size_buf);
     buffer_free(n_buf);
 
-    return 0;
+    return result;
 }
 
 rpc_message *receive_rpc_message(int sockfd) {

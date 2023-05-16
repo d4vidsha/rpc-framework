@@ -282,7 +282,7 @@ void *handle_all_requests_thread(void *arg) {
 }
 
 void handle_all_requests(rpc_server *srv, rpc_client_state *cl) {
-    while (!is_socket_closed(cl->sockfd)) {
+    while (keep_running && !is_socket_closed(cl->sockfd)) {
         debug_print("%s",
                     "==================================================\n");
         debug_print("%s", "Waiting for request...\n");

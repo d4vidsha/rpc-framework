@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 typedef struct arguments {
     char *ip;
@@ -48,7 +49,9 @@ int main(int argc, char *argv[]) {
         goto cleanup;
     }
 
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 20; i++) {
+        // sleep for half a second
+        usleep(500000);
         /* Prepare request */
         char left_operand = i;
         char right_operand = 100;
@@ -91,6 +94,8 @@ cleanup:
     if (handle_add2 != NULL) {
         free(handle_add2);
     }
+
+    
 
     rpc_close_client(state);
     state = NULL;
