@@ -169,30 +169,44 @@ cleanup:
 }
 
 rpc_message *receive_rpc_message(int sockfd) {
+    rpc_message *msg = NULL;
+    buffer_t *size_buf = NULL, *buf = NULL;
 
     // read size of message and send back to confirm
-    buffer_t *size_buf = new_buffer(gamma_code_length(MAX_MESSAGE_BYTE_SIZE));
+    size_buf = new_buffer(gamma_code_length(MAX_MESSAGE_BYTE_SIZE));
     if (read_bytes(sockfd, size_buf->data, size_buf->size) <= 0) {
-        return NULL;
+        debug_print("%s", "Error reading message size\n");
+        goto cleanup;
     }
     size_t size = deserialise_size_t(size_buf);
     debug_print("Sending back the expected size of %ld bytes...\n", size);
     if (write_bytes(sockfd, size_buf->data, size_buf->size) < 0) {
-        return NULL;
+        debug_print("%s", "Error writing to socket\n");
+        goto cleanup;
     }
 
-    // read message
-    buffer_t *buf = new_buffer(size);
-
+    // now read the message
+    buf = new_buffer(size);
     if (read_bytes(sockfd, buf->data, size) <= 0) {
-        return NULL;
+        debug_print("%s", "Error reading message\n");
+        goto cleanup;
     }
-    rpc_message *msg = deserialise_rpc_message(buf);
+    if ((msg = deserialise_rpc_message(buf)) == NULL) {
+        debug_print("%s", "Error deserialising message\n");
+        goto cleanup;
+    }
+
+    // success if we get here
     debug_print_rpc_message(msg);
 
+cleanup:
     // free buffers
-    buffer_free(size_buf);
-    buffer_free(buf);
+    if (size_buf != NULL) {
+        buffer_free(size_buf);
+    }
+    if (buf != NULL) {
+        buffer_free(buf);
+    }
 
     return msg;
 }
@@ -312,7 +326,13 @@ void serialise_rpc_data(buffer_t *b, const rpc_data *data) {
 rpc_data *deserialise_rpc_data(buffer_t *b) {
     int data1 = deserialise_int(b);
     size_t data2_len = deserialise_size_t(b);
-    rpc_data *data = new_rpc_data(data1, data2_len, b->data + b->next);
+    void *data2_ptr = b->data + b->next;
+    if ((b->next + data2_len) == '\0') {
+        // no data2
+        data2_len = 0;
+        data2_ptr = NULL;
+    } 
+    rpc_data *data = new_rpc_data(data1, data2_len, data2_ptr);
     b->next += data2_len;
     return data;
 }
@@ -329,6 +349,11 @@ rpc_message *deserialise_rpc_message(buffer_t *b) {
     int operation = deserialise_int(b);
     char *function_name = deserialise_string(b);
     rpc_data *data = deserialise_rpc_data(b);
+    if (data == NULL) {
+        debug_print("%s", "rpc_data provided is malformed\n");
+        free(function_name);
+        return NULL;
+    }
     rpc_message *message =
         new_rpc_message(request_id, operation, function_name, data);
     return message;
@@ -373,6 +398,10 @@ void rpc_message_free(rpc_message *message, void (*free_data)(rpc_data *)) {
         free_data(message->data);
     }
     free(message);
+}
+
+rpc_message *create_failure_message() {
+    return new_rpc_message(0, REPLY_FAILURE, new_string(""), new_rpc_data(0, 0, NULL));
 }
 
 void debug_print_rpc_data(rpc_data *data) {

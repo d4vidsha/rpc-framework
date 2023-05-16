@@ -98,7 +98,7 @@ void debug_print_bytes(const unsigned char *buffer, size_t len);
 int send_rpc_message(int sockfd, rpc_message *msg);
 
 /*
- * Receive an rpc_message from a socket.
+ * Receive an rpc_message from a socket. 
  *
  * @param sockfd The socket to receive the message from.
  * @return The message received. NULL if there was an error.
@@ -189,7 +189,9 @@ char *deserialise_string(buffer_t *b);
 void serialise_rpc_data(buffer_t *b, const rpc_data *data);
 
 /*
- * Deserialise rpc_data value from buffer.
+ * Deserialise rpc_data value from buffer. If rpc_data is inconsistent,
+ * then we try to give as much information as possible and return a 
+ * partially deserialised rpc_data value.
  *
  * @param buffer: buffer to deserialise from
  * @return: deserialised rpc_data value
@@ -207,7 +209,8 @@ rpc_data *deserialise_rpc_data(buffer_t *b);
 void serialise_rpc_message(buffer_t *b, const rpc_message *message);
 
 /*
- * Deserialise rpc_message value from buffer.
+ * Deserialise rpc_message value from buffer. If rpc_data is inconsistent,
+ * then we return NULL.
  *
  * @param buffer: buffer to deserialise from
  * @return: deserialised rpc_message value
@@ -251,6 +254,14 @@ rpc_message *new_rpc_message(int request_id, int operation, char *function_name,
  * @param message The RPC message to free.
  */
 void rpc_message_free(rpc_message *message, void (*free_data)(rpc_data *));
+
+/*
+ * Create a default failure message so that we can send it to the client.
+ * from the server.
+ * 
+ * @return The failure message.
+ */
+rpc_message *create_failure_message();
 
 /*
  * Print an RPC data.

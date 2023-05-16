@@ -300,7 +300,9 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
     // receive rpc_message from the client and process it
     rpc_message *msg;
     if ((msg = receive_rpc_message(cl->sockfd)) == NULL) {
-        debug_print("%s", "Client disconnected\n");
+        debug_print("%s", "Receiving message failed. Responding with failure "
+                          "message...\n");
+        send_rpc_message(cl->sockfd, create_failure_message());
         return;
     }
 
@@ -362,9 +364,7 @@ rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg) {
 
     // if the handler does not exist, respond with failure
     if (handler == NULL) {
-        return new_rpc_message(msg->request_id, REPLY_FAILURE,
-                               new_string(msg->function_name),
-                               new_rpc_data(0, 0, NULL));
+        return create_failure_message();
     }
 
     // run the handler
@@ -476,6 +476,22 @@ rpc_handle *rpc_find(rpc_client *cl, char *name) {
 rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
     // check if any of the parameters are NULL
     if (cl == NULL || h == NULL || payload == NULL) {
+        return NULL;
+    }
+
+    // check that payload is not malformed
+    if (payload->data2_len > 0) {
+        // check that data2 is not NULL
+        if (payload->data2 == NULL) {
+            return NULL;
+        }
+    } else if (payload->data2_len == 0) {
+        // check that data2 is NULL
+        if (payload->data2 != NULL) {
+            return NULL;
+        }
+    } else {
+        // data2_len is negative which is impossible
         return NULL;
     }
 
