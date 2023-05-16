@@ -1,6 +1,6 @@
 /* =============================================================================
    protocol.h
-   
+
    Everything related to the protocol.
 
    Author: David Sha
@@ -49,14 +49,14 @@ buffer_t *new_buffer(size_t size);
 
 /*
  * Free a buffer.
- * 
+ *
  * @param b The buffer to free.
  */
 void buffer_free(buffer_t *b);
 
 /*
  * Reserve space in a buffer and use realloc if necessary in O(log n).
- * 
+ *
  * @param b The buffer to reserve space in.
  * @param size The number of bytes to reserve.
  */
@@ -134,9 +134,9 @@ int deserialise_int(buffer_t *b);
 /*
  * The length of the gamma code for a given integer value (x)
  * greater than 0.
- * 
+ *
  * Formula: 2 * floor(log2(x)) + 1
- * 
+ *
  * @param x The integer value.
  * @return The length of the gamma code.
  */
@@ -252,7 +252,7 @@ rpc_message *new_rpc_message(int request_id, int operation, char *function_name,
 void rpc_message_free(rpc_message *message, void (*free_data)(rpc_data *));
 
 /*
- * Print an RPC data.   
+ * Print an RPC data.
  *
  * @param data The RPC data to print.
  */

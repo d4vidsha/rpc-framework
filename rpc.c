@@ -17,12 +17,12 @@
 #include "protocol.h"
 #include "sockets.h"
 #include <assert.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <pthread.h>
 
 /* signal handling ========================================================== */
 static volatile sig_atomic_t keep_running = 1;
@@ -49,7 +49,7 @@ typedef struct {
 
 /*
  * Handle all requests from the client in a separate thread.
- * 
+ *
  * @param arg The arguments to the thread which in this case
  * contains the server state and the server's client state.
  * @return NULL on success.
@@ -75,7 +75,7 @@ void handle_request(rpc_server *srv, rpc_client_state *cl);
 
 /*
  * Handle a find request from the client.
- * 
+ *
  * @param srv The server state.
  * @param msg The message from the client.
  * @return The response to the client.
@@ -84,7 +84,7 @@ rpc_message *handle_find_request(rpc_server *srv, rpc_message *msg);
 
 /*
  * Handle a call request from the client.
- * 
+ *
  * @param srv The server state.
  * @param msg The message from the client.
  * @return The response to the client. If the call fails, the operation
@@ -219,13 +219,15 @@ void rpc_serve_all(rpc_server *srv) {
         append(srv->clients, cl);
 
         // print the client connection information
-        debug_print("%s", "--------------------------------------------------\n");
+        debug_print("%s",
+                    "--------------------------------------------------\n");
         debug_print_client_info(cl);
 
         // handle requests from the client in a new thread
         pthread_t *thread = (pthread_t *)malloc(sizeof(*thread));
         append(srv->threads, thread);
-        handle_all_requests_args *args = (handle_all_requests_args *)malloc(sizeof(*args));
+        handle_all_requests_args *args =
+            (handle_all_requests_args *)malloc(sizeof(*args));
         assert(args);
         args->srv = srv;
         args->cl = cl;
@@ -256,16 +258,16 @@ void debug_print_client_info(rpc_client_state *cl) {
         struct sockaddr_in *s = (struct sockaddr_in *)&addr;
         inet_ntop(AF_INET, &(s->sin_addr), ip_str, sizeof(ip_str));
         debug_print("Connected %s:%d on socket %d\n", ip_str,
-                ntohs(s->sin_port), cl->sockfd);
+                    ntohs(s->sin_port), cl->sockfd);
     } else if (addr.ss_family == AF_INET6) {
         struct sockaddr_in6 *s = (struct sockaddr_in6 *)&addr;
         inet_ntop(AF_INET6, &(s->sin6_addr), ip_str, sizeof(ip_str));
         if (strcmp(ip_str, "::1") == 0) {
             debug_print("Client %s:%d (localhost) connected on socket %d\n",
-                    ip_str, ntohs(s->sin6_port), cl->sockfd);
+                        ip_str, ntohs(s->sin6_port), cl->sockfd);
         } else {
             debug_print("Client %s:%d connected on socket %d\n", ip_str,
-                    ntohs(s->sin6_port), cl->sockfd);
+                        ntohs(s->sin6_port), cl->sockfd);
         }
     } else {
         debug_print("%s", "Unknown address family\n");
@@ -281,7 +283,8 @@ void *handle_all_requests_thread(void *arg) {
 
 void handle_all_requests(rpc_server *srv, rpc_client_state *cl) {
     while (!is_socket_closed(cl->sockfd)) {
-        debug_print("%s", "==================================================\n");
+        debug_print("%s",
+                    "==================================================\n");
         debug_print("%s", "Waiting for request...\n");
         handle_request(srv, cl);
     }
@@ -303,32 +306,32 @@ void handle_request(rpc_server *srv, rpc_client_state *cl) {
 
     rpc_message *new_msg = NULL;
     switch (msg->operation) {
-        case FIND:
-            debug_print("%s", "Received FIND request\n");
-            debug_print("Looking for handler: %s\n", msg->function_name);
-            new_msg = handle_find_request(srv, msg);
-            break;
+    case FIND:
+        debug_print("%s", "Received FIND request\n");
+        debug_print("Looking for handler: %s\n", msg->function_name);
+        new_msg = handle_find_request(srv, msg);
+        break;
 
-        case CALL:
-            debug_print("%s", "Received CALL request\n");
-            debug_print("Calling handler: %s\n", msg->function_name);
-            new_msg = handle_call_request(srv, msg);
-            break;
+    case CALL:
+        debug_print("%s", "Received CALL request\n");
+        debug_print("Calling handler: %s\n", msg->function_name);
+        new_msg = handle_call_request(srv, msg);
+        break;
 
-        case REPLY_SUCCESS:
-            debug_print("%s", "Received REPLY_SUCCESS request\n");
-            debug_print("%s", "Doing nothing...\n");
-            break;
+    case REPLY_SUCCESS:
+        debug_print("%s", "Received REPLY_SUCCESS request\n");
+        debug_print("%s", "Doing nothing...\n");
+        break;
 
-        case REPLY_FAILURE:
-            debug_print("%s", "Received REPLY_FAILURE request\n");
-            debug_print("%s", "Doing nothing...\n");
-            break;
+    case REPLY_FAILURE:
+        debug_print("%s", "Received REPLY_FAILURE request\n");
+        debug_print("%s", "Doing nothing...\n");
+        break;
 
-        default:
-            debug_print("Received unknown request: %d\n", msg->operation);
-            debug_print("%s", "Doing nothing...\n");
-            break;
+    default:
+        debug_print("Received unknown request: %d\n", msg->operation);
+        debug_print("%s", "Doing nothing...\n");
+        break;
     }
 
     // check if handling the request failed
@@ -349,7 +352,9 @@ rpc_message *handle_find_request(rpc_server *srv, rpc_message *msg) {
     debug_print("Handler %s\n", exists ? "found" : "not found");
 
     // create a new message to send back to the client
-    return new_rpc_message(msg->request_id, REPLY_SUCCESS, new_string(msg->function_name), new_rpc_data(exists, 0, NULL));
+    return new_rpc_message(msg->request_id, REPLY_SUCCESS,
+                           new_string(msg->function_name),
+                           new_rpc_data(exists, 0, NULL));
 }
 
 rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg) {
@@ -357,14 +362,17 @@ rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg) {
 
     // if the handler does not exist, respond with failure
     if (handler == NULL) {
-        return new_rpc_message(msg->request_id, REPLY_FAILURE, new_string(msg->function_name), new_rpc_data(0, 0, NULL));
+        return new_rpc_message(msg->request_id, REPLY_FAILURE,
+                               new_string(msg->function_name),
+                               new_rpc_data(0, 0, NULL));
     }
 
     // run the handler
     rpc_data *new_data = handler(msg->data);
 
     // create a new message to send back to the client
-    return new_rpc_message(msg->request_id, REPLY_SUCCESS, new_string(msg->function_name), new_data);
+    return new_rpc_message(msg->request_id, REPLY_SUCCESS,
+                           new_string(msg->function_name), new_data);
 }
 
 void rpc_shutdown_server(rpc_server *srv) {

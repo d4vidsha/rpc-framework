@@ -14,11 +14,11 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <math.h>
 
 buffer_t *new_buffer(size_t size) {
     buffer_t *b = (buffer_t *)malloc(sizeof(*b));
@@ -50,7 +50,7 @@ int write_bytes(int sockfd, unsigned char *buf, size_t size) {
     while (total_bytes_written != size) {
         assert(total_bytes_written < size);
         size_t bytes_written = write(sockfd, buf + total_bytes_written,
-                                      size - total_bytes_written);
+                                     size - total_bytes_written);
         if (bytes_written < 0) {
             if (errno == EPIPE) {
                 debug_print("%s", "Connection closed by client\n");
@@ -139,7 +139,9 @@ int send_rpc_message(int sockfd, rpc_message *msg) {
     }
     size_t n = deserialise_size_t(n_buf);
     if (n != size) {
-        debug_print("Error: sent %ld bytes but received %ld bytes before sending message\n", size, n);
+        debug_print("Error: sent %ld bytes but received %ld bytes before "
+                    "sending message\n",
+                    size, n);
         return FAILED;
     } else {
         debug_print("%s", "Looks good, sending payload...\n");
@@ -212,8 +214,7 @@ void serialise_int(buffer_t *b, int value) {
 
 int deserialise_int(buffer_t *b) {
     unsigned char *buf = b->data + b->next;
-    int value = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) |
-                buf[3];
+    int value = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
     b->next += 4;
     return value;
 }
@@ -224,7 +225,7 @@ unsigned int gamma_code_length(size_t x) {
 }
 
 void serialise_size_t(buffer_t *b, size_t value) {
-    // we cannot take 0 as a valid value for Elias gamma coding so we 
+    // we cannot take 0 as a valid value for Elias gamma coding so we
     // increment all values by 1 and decrement them when deserialising
     value++;
 
@@ -322,7 +323,8 @@ rpc_message *deserialise_rpc_message(buffer_t *b) {
     int operation = deserialise_int(b);
     char *function_name = deserialise_string(b);
     rpc_data *data = deserialise_rpc_data(b);
-    rpc_message *message = new_rpc_message(request_id, operation, function_name, data);
+    rpc_message *message =
+        new_rpc_message(request_id, operation, function_name, data);
     return message;
 }
 
@@ -350,7 +352,7 @@ rpc_data *new_rpc_data(int data1, size_t data2_len, void *data2) {
 
 rpc_message *new_rpc_message(int request_id, int operation, char *function_name,
                              rpc_data *data) {
-     rpc_message *message = (rpc_message *)malloc(sizeof(*message));
+    rpc_message *message = (rpc_message *)malloc(sizeof(*message));
     assert(message);
     message->request_id = request_id;
     message->operation = operation;

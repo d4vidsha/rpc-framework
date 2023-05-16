@@ -34,7 +34,7 @@ int create_connection_socket(char *addr, char *port);
 /*
  * Accept a connection from a client in a non-blocking manner. This assumes
  * this function is run within a loop.
- * 
+ *
  * @param sockfd The socket file descriptor.
  * @param client_addr The client's address that will be populated by this
  * function call.
@@ -42,7 +42,8 @@ int create_connection_socket(char *addr, char *port);
  * during this function call.
  * @return The client's socket file descriptor, or -1 if no client is connected.
  */
-int non_blocking_accept(int sockfd, struct sockaddr_in *client_addr, socklen_t *client_addr_size);
+int non_blocking_accept(int sockfd, struct sockaddr_in *client_addr,
+                        socklen_t *client_addr_size);
 
 /*
  * Checks if a socket is closed.

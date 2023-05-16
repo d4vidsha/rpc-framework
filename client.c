@@ -84,7 +84,6 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Task 2: Remote procedure is called correctly\n");
-    
 
     printf("We are done!\n");
 

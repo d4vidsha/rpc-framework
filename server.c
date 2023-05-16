@@ -35,9 +35,8 @@ int main(int argc, char *argv[]) {
     state = rpc_init_server(port);
     if (state != NULL) {
         printf("✅ is initialised\n");
-    } 
+    }
     // currently cannot check for when state == NULL since malloc
-
 
     printf("\nrpc_register: %p\n", rpc_register);
     // test override

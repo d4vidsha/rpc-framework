@@ -12,8 +12,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/select.h>
+#include <unistd.h>
 
 int create_listening_socket(char *port) {
     int re, s, sockfd;
@@ -106,8 +106,8 @@ int non_blocking_accept(int sockfd, struct sockaddr_in *client_addr,
         return FAILED;
     } else if (retval) {
         // connection request received
-        new_sockfd = accept(sockfd, (struct sockaddr *)client_addr,
-                        client_addr_size);
+        new_sockfd =
+            accept(sockfd, (struct sockaddr *)client_addr, client_addr_size);
         if (new_sockfd < 0) {
             debug_print("%s", "Error accepting connection\n");
             return FAILED;
