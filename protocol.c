@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <endian.h>
+#include <stdint.h>
 
 buffer_t *new_buffer(size_t size) {
     buffer_t *b = (buffer_t *)malloc(sizeof(*b));
@@ -37,7 +39,7 @@ void buffer_free(buffer_t *b) {
 }
 
 void reserve_space(buffer_t *b, size_t size) {
-    if (b->next + size > b->size) {
+    while (b->next + size > b->size) {
         // double the size of the buffer for O(log n) reallocations
         b->size *= 2;
         b->data = realloc(b->data, b->size);
@@ -180,7 +182,7 @@ rpc_message *receive_rpc_message(int sockfd) {
     }
 
     // read message
-    buffer_t *buf = new_buffer(INITIAL_BUFFER_SIZE);
+    buffer_t *buf = new_buffer(size);
 
     if (read_bytes(sockfd, buf->data, size) <= 0) {
         return NULL;
@@ -209,20 +211,18 @@ rpc_message *request(int sockfd, rpc_message *msg) {
 }
 
 void serialise_int(buffer_t *b, int value) {
-    reserve_space(b, 4);
-    unsigned char *buf = b->data + b->next;
-    buf[0] = value >> 24;
-    buf[1] = value >> 16;
-    buf[2] = value >> 8;
-    buf[3] = value;
-    b->next += 4;
+    uint64_t big_endian = htobe64(value);
+    reserve_space(b, sizeof(uint64_t));
+    memcpy(b->data + b->next, &big_endian, sizeof(uint64_t));
+    b->next += sizeof(uint64_t);
 }
 
 int deserialise_int(buffer_t *b) {
-    unsigned char *buf = b->data + b->next;
-    int value = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-    b->next += 4;
-    return value;
+    assert(b->next + sizeof(uint64_t) <= b->size);
+    uint64_t big_endian;
+    memcpy(&big_endian, b->data + b->next, sizeof(uint64_t));
+    b->next += sizeof(uint64_t);
+    return be64toh(big_endian);
 }
 
 unsigned int gamma_code_length(size_t x) {

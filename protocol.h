@@ -115,7 +115,8 @@ rpc_message *receive_rpc_message(int sockfd);
 rpc_message *request(int sockfd, rpc_message *msg);
 
 /*
- * Serialise integer value into buffer.
+ * Serialise integer value into buffer. We assume that the integer value is
+ * no greater than 2^63 - 1.
  *
  * @param b: buffer to serialise into
  * @param value: integer value to serialise
