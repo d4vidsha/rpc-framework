@@ -5,7 +5,7 @@
 
    References:
    - Elias Gamma Coding: https://en.wikipedia.org/wiki/Elias_gamma_coding
-   - While loop with write: https://stackoverflow.com/a/15384631
+   - While loop with write and read: https://stackoverflow.com/a/15384631
 
    Author: David Sha
 ============================================================================= */
