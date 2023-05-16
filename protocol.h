@@ -10,7 +10,16 @@
 
 #include "rpc.h"
 
+#define INITIAL_BUFFER_SIZE 32
+#define MAX_MESSAGE_BYTE_SIZE 1000000
+
 /* structures =============================================================== */
+
+typedef struct {
+    void *data;
+    size_t next;
+    size_t size;
+} buffer_t;
 
 /*
  * The payload for requests/responses.
@@ -30,13 +39,37 @@ typedef struct {
 /* function prototypes ====================================================== */
 
 /*
+ * Create a new buffer that will initially be calloc'd to size. Subsequent
+ * reallocs will be in O(log n) and not zeroed out.
+ *
+ * @param size The initial size of the buffer.
+ * @return The new buffer.
+ */
+buffer_t *new_buffer(size_t size);
+
+/*
+ * Free a buffer.
+ * 
+ * @param b The buffer to free.
+ */
+void buffer_free(buffer_t *b);
+
+/*
+ * Reserve space in a buffer and use realloc if necessary in O(log n).
+ * 
+ * @param b The buffer to reserve space in.
+ * @param size The number of bytes to reserve.
+ */
+void reserve_space(buffer_t *b, size_t size);
+
+/*
  * Write a string of bytes to a socket.
  *
  * @param sockfd The socket to write to.
  * @param bytes The bytes to write.
  * @param size The number of bytes to write.
  */
-int write_bytes(int sockfd, const unsigned char *bytes, int size);
+int write_bytes(int sockfd, unsigned char *buf, size_t size);
 
 /*
  * Read a string of bytes from a socket.
@@ -45,7 +78,7 @@ int write_bytes(int sockfd, const unsigned char *bytes, int size);
  * @param buffer The buffer to read into.
  * @param size The number of bytes to read.
  */
-int read_bytes(int sockfd, unsigned char *buffer, int size);
+int read_bytes(int sockfd, unsigned char *buf, size_t size);
 
 /*
  * Print bytes.
@@ -84,11 +117,10 @@ rpc_message *request(int sockfd, rpc_message *msg);
 /*
  * Serialise integer value into buffer.
  *
- * @param buffer: buffer to serialise into
+ * @param b: buffer to serialise into
  * @param value: integer value to serialise
- * @return: pointer to next byte in buffer
  */
-unsigned char *serialise_int(unsigned char *buffer, int value);
+void serialise_int(buffer_t *b, int value);
 
 /*
  * Deserialise integer value from buffer.
@@ -97,7 +129,18 @@ unsigned char *serialise_int(unsigned char *buffer, int value);
  * @return: deserialised integer value
  * @note: buffer pointer is incremented
  */
-int deserialise_int(unsigned char **buffer_ptr);
+int deserialise_int(buffer_t *b);
+
+/*
+ * The length of the gamma code for a given integer value (x)
+ * greater than 0.
+ * 
+ * Formula: 2 * floor(log2(x)) + 1
+ * 
+ * @param x The integer value.
+ * @return The length of the gamma code.
+ */
+unsigned int gamma_code_length(size_t x);
 
 /*
  * Serialise size_t value into buffer.
@@ -106,7 +149,7 @@ int deserialise_int(unsigned char **buffer_ptr);
  * @param value: size_t value to serialise
  * @return: pointer to next byte in buffer
  */
-unsigned char *serialise_size_t(unsigned char *buffer, size_t value);
+void serialise_size_t(buffer_t *b, size_t value);
 
 /*
  * Deserialise size_t value from buffer.
@@ -115,7 +158,7 @@ unsigned char *serialise_size_t(unsigned char *buffer, size_t value);
  * @return: deserialised size_t value
  * @note: buffer pointer is incremented
  */
-size_t deserialise_size_t(unsigned char **buffer_ptr);
+size_t deserialise_size_t(buffer_t *b);
 
 /*
  * Serialise string value into buffer.
@@ -124,7 +167,7 @@ size_t deserialise_size_t(unsigned char **buffer_ptr);
  * @param value: string value to serialise
  * @return: pointer to next byte in buffer
  */
-unsigned char *serialise_string(unsigned char *buffer, const char *value);
+void serialise_string(buffer_t *b, const char *value);
 
 /*
  * Deserialise string value from buffer.
@@ -133,7 +176,7 @@ unsigned char *serialise_string(unsigned char *buffer, const char *value);
  * @return: deserialised string value
  * @note: buffer pointer is incremented
  */
-char *deserialise_string(unsigned char **buffer_ptr);
+char *deserialise_string(buffer_t *b);
 
 /*
  * Serialise rpc_data value into buffer.
@@ -142,7 +185,7 @@ char *deserialise_string(unsigned char **buffer_ptr);
  * @param data: rpc_data value to serialise
  * @return: pointer to next byte in buffer
  */
-unsigned char *serialise_rpc_data(unsigned char *buffer, const rpc_data *data);
+void serialise_rpc_data(buffer_t *b, const rpc_data *data);
 
 /*
  * Deserialise rpc_data value from buffer.
@@ -151,7 +194,7 @@ unsigned char *serialise_rpc_data(unsigned char *buffer, const rpc_data *data);
  * @return: deserialised rpc_data value
  * @note: buffer pointer is incremented
  */
-rpc_data *deserialise_rpc_data(unsigned char **buffer_ptr);
+rpc_data *deserialise_rpc_data(buffer_t *b);
 
 /*
  * Serialise rpc_message value into buffer.
@@ -160,8 +203,7 @@ rpc_data *deserialise_rpc_data(unsigned char **buffer_ptr);
  * @param msg: rpc_message value to serialise
  * @return: pointer to next byte in buffer
  */
-unsigned char *serialise_rpc_message(unsigned char *buffer,
-                                     const rpc_message *message);
+void serialise_rpc_message(buffer_t *b, const rpc_message *message);
 
 /*
  * Deserialise rpc_message value from buffer.
@@ -170,7 +212,7 @@ unsigned char *serialise_rpc_message(unsigned char *buffer,
  * @return: deserialised rpc_message value
  * @note: buffer pointer is incremented
  */
-rpc_message *deserialise_rpc_message(unsigned char **buffer_ptr);
+rpc_message *deserialise_rpc_message(buffer_t *b);
 
 /*
  * Create a new string.

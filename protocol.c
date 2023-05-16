@@ -3,6 +3,10 @@
 
    Everything related to the protocol.
 
+   References:
+   - Elias Gamma Coding: https://en.wikipedia.org/wiki/Elias_gamma_coding
+   - While loop with write: https://stackoverflow.com/a/15384631
+
    Author: David Sha
 ============================================================================= */
 #include "protocol.h"
@@ -14,52 +18,97 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <math.h>
 
-int write_bytes(int sockfd, const unsigned char *bytes, int size) {
-    debug_print("Writing %d bytes\n", size);
-    debug_print_bytes(bytes, size);
-    int n = write(sockfd, bytes, size);
-    if (n < 0) {
-        if (errno == EPIPE) {
-            debug_print("%s", "Connection closed by client\n");
+buffer_t *new_buffer(size_t size) {
+    buffer_t *b = (buffer_t *)malloc(sizeof(*b));
+    assert(b);
+    b->data = calloc(size, sizeof(*b->data));
+    assert(b->data);
+    b->next = 0;
+    b->size = size;
+    return b;
+}
+
+void buffer_free(buffer_t *b) {
+    free(b->data);
+    free(b);
+}
+
+void reserve_space(buffer_t *b, size_t size) {
+    if (b->next + size > b->size) {
+        // double the size of the buffer for O(log n) reallocations
+        b->size *= 2;
+        b->data = realloc(b->data, b->size);
+        assert(b->data);
+    }
+}
+
+int write_bytes(int sockfd, unsigned char *buf, size_t size) {
+    debug_print("\nWriting %ld bytes\n", size);
+    size_t total_bytes_written = 0;
+    while (total_bytes_written != size) {
+        assert(total_bytes_written < size);
+        size_t bytes_written = write(sockfd, buf + total_bytes_written,
+                                      size - total_bytes_written);
+        if (bytes_written < 0) {
+            if (errno == EPIPE) {
+                debug_print("%s", "Connection closed by client\n");
+            } else {
+                debug_print("%s", "Error writing to socket\n");
+            }
+            close(sockfd);
+            return FAILED;
         } else {
-            debug_print("%s", "Error writing to socket\n");
+            debug_print("Wrote %ld bytes\n", bytes_written);
+            debug_print_bytes(buf + total_bytes_written, bytes_written);
         }
-        close(sockfd);
+        total_bytes_written += bytes_written;
     }
-    return n;
+    assert(total_bytes_written == size);
+    return total_bytes_written;
 }
 
-int read_bytes(int sockfd, unsigned char *buffer, int size) {
-    debug_print("\nReading %d bytes\n", size);
-    int n = read(sockfd, buffer, size);
-    if (n < 0) {
-        debug_print("%s", "Error reading from socket\n");
-        close(sockfd);
-    } else if (n == 0) {
-        debug_print("%s", "Connection closed\n");
-        close(sockfd);
-    } else {
-        debug_print_bytes(buffer, n);
+int read_bytes(int sockfd, unsigned char *buf, size_t size) {
+    debug_print("\nReading %ld bytes\n", size);
+    size_t total_bytes_read = 0;
+    while (total_bytes_read != size) {
+        assert(total_bytes_read < size);
+        size_t bytes_read =
+            read(sockfd, buf + total_bytes_read, size - total_bytes_read);
+        if (bytes_read < 0) {
+            debug_print("%s", "Error reading from socket\n");
+            close(sockfd);
+            return FAILED;
+        } else if (bytes_read == 0) {
+            debug_print("%s", "Connection closed by client\n");
+            close(sockfd);
+            return FAILED;
+        } else {
+            debug_print("Read %ld bytes\n", bytes_read);
+            debug_print_bytes(buf + total_bytes_read, bytes_read);
+        }
+        total_bytes_read += bytes_read;
     }
-    return n;
+    assert(total_bytes_read == size);
+    return total_bytes_read;
 }
 
-void debug_print_bytes(const unsigned char *buffer, size_t len) {
+void debug_print_bytes(const unsigned char *buf, size_t len) {
     debug_print("Serialised message (%ld bytes):\n", len);
     int box_size = 16;
     for (int i = 0; i < len; i += box_size) {
         for (int j = 0; j < box_size; j++) {
             if (i + j < len)
-                debug_print("%02X ", buffer[i + j]);
+                debug_print("%02X ", buf[i + j]);
             else
                 debug_print("%s", "   ");
         }
         debug_print("%s", "  ");
         for (int j = 0; j < box_size; j++) {
             if (i + j < len) {
-                if (isprint(buffer[i + j]))
-                    debug_print("%c", buffer[i + j]);
+                if (isprint(buf[i + j]))
+                    debug_print("%c", buf[i + j]);
                 else
                     debug_print("%s", ".");
             }
@@ -71,37 +120,40 @@ void debug_print_bytes(const unsigned char *buffer, size_t len) {
 int send_rpc_message(int sockfd, rpc_message *msg) {
 
     // convert message to serialised form
-    unsigned char buffer[BUFSIZ], *ptr;
-    ptr = serialise_rpc_message(buffer, msg);
+    buffer_t *buf = new_buffer(INITIAL_BUFFER_SIZE);
+    serialise_rpc_message(buf, msg);
 
     // send an integer representing the size of the message
-    int size = ptr - buffer;
-    unsigned char size_buffer[BUFSIZ], *size_ptr = size_buffer;
-    size_ptr = serialise_int(size_buffer, size);
-    if (write_bytes(sockfd, size_buffer, size_ptr - size_buffer) < 0) {
+    size_t size = buf->next;
+    size_t gamma_size = gamma_code_length(MAX_MESSAGE_BYTE_SIZE);
+    buffer_t *size_buf = new_buffer(gamma_size);
+    serialise_size_t(size_buf, size);
+    if (write_bytes(sockfd, size_buf->data, size_buf->size) < 0) {
         return FAILED;
     }
 
     // read that the number of bytes sent is correct
-    int n;
-    if (read_bytes(sockfd, size_buffer, size_ptr - size_buffer) <= 0) {
+    buffer_t *n_buf = new_buffer(gamma_size);
+    if (read_bytes(sockfd, n_buf->data, n_buf->size) <= 0) {
         return FAILED;
     }
-    size_ptr = size_buffer;
-    n = deserialise_int(&size_ptr);
+    size_t n = deserialise_size_t(n_buf);
     if (n != size) {
-        debug_print("Error: sent %d bytes but received %d bytes before sending "
-                    "message\n",
-                    size, n);
+        debug_print("Error: sent %ld bytes but received %ld bytes before sending message\n", size, n);
         return FAILED;
     } else {
         debug_print("%s", "Looks good, sending payload...\n");
     }
 
     // send the message
-    if (write_bytes(sockfd, buffer, size) < 0) {
+    if (write_bytes(sockfd, buf->data, buf->next) < 0) {
         return FAILED;
     }
+
+    // free buffers
+    buffer_free(buf);
+    buffer_free(size_buf);
+    buffer_free(n_buf);
 
     return 0;
 }
@@ -109,24 +161,28 @@ int send_rpc_message(int sockfd, rpc_message *msg) {
 rpc_message *receive_rpc_message(int sockfd) {
 
     // read size of message and send back to confirm
-    int size;
-    unsigned char size_buffer[BUFSIZ], *size_ptr = size_buffer;
-    if (read_bytes(sockfd, size_buffer, BUFSIZ) <= 0) {
+    buffer_t *size_buf = new_buffer(gamma_code_length(MAX_MESSAGE_BYTE_SIZE));
+    if (read_bytes(sockfd, size_buf->data, size_buf->size) <= 0) {
         return NULL;
     }
-    size = deserialise_int(&size_ptr);
-    debug_print("Sending back the expected size of %d bytes...\n", size);
-    if (write_bytes(sockfd, size_buffer, size_ptr - size_buffer) < 0) {
+    size_t size = deserialise_size_t(size_buf);
+    debug_print("Sending back the expected size of %ld bytes...\n", size);
+    if (write_bytes(sockfd, size_buf->data, size_buf->size) < 0) {
         return NULL;
     }
 
     // read message
-    unsigned char buffer[size], *ptr = buffer;
-    if (read_bytes(sockfd, buffer, size) <= 0) {
+    buffer_t *buf = new_buffer(INITIAL_BUFFER_SIZE);
+
+    if (read_bytes(sockfd, buf->data, size) <= 0) {
         return NULL;
     }
-    rpc_message *msg = deserialise_rpc_message(&ptr);
+    rpc_message *msg = deserialise_rpc_message(buf);
     debug_print_rpc_message(msg);
+
+    // free buffers
+    buffer_free(size_buf);
+    buffer_free(buf);
 
     return msg;
 }
@@ -144,28 +200,39 @@ rpc_message *request(int sockfd, rpc_message *msg) {
     return receive_rpc_message(sockfd);
 }
 
-unsigned char *serialise_int(unsigned char *buffer, int value) {
-    buffer[0] = value >> 24;
-    buffer[1] = value >> 16;
-    buffer[2] = value >> 8;
-    buffer[3] = value;
-    return buffer + 4;
+void serialise_int(buffer_t *b, int value) {
+    reserve_space(b, 4);
+    unsigned char *buf = b->data + b->next;
+    buf[0] = value >> 24;
+    buf[1] = value >> 16;
+    buf[2] = value >> 8;
+    buf[3] = value;
+    b->next += 4;
 }
 
-int deserialise_int(unsigned char **buffer_ptr) {
-    unsigned char *buffer = *buffer_ptr;
-    int value = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) |
-                buffer[3];
-    *buffer_ptr += 4;
+int deserialise_int(buffer_t *b) {
+    unsigned char *buf = b->data + b->next;
+    int value = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) |
+                buf[3];
+    b->next += 4;
     return value;
 }
 
-unsigned char *serialise_size_t(unsigned char *buffer, size_t value) {
+unsigned int gamma_code_length(size_t x) {
+    assert(x > 0);
+    return 2 * (unsigned int)log2(x) + 1;
+}
+
+void serialise_size_t(buffer_t *b, size_t value) {
     // we cannot take 0 as a valid value for Elias gamma coding so we 
     // increment all values by 1 and decrement them when deserialising
     value++;
 
-    unsigned char *ptr = buffer;
+    unsigned int total_len = gamma_code_length(value);
+    reserve_space(b, total_len);
+    unsigned char *buf = b->data + b->next;
+
+    unsigned char *ptr = buf;
     unsigned int length = 0;
 
     // calculate the number of bits required to represent the value
@@ -184,11 +251,12 @@ unsigned char *serialise_size_t(unsigned char *buffer, size_t value) {
         *ptr++ = (value >> (i - 1)) & 0x01;
     }
 
-    return ptr;
+    b->next += total_len;
 }
 
-size_t deserialise_size_t(unsigned char **buffer_ptr) {
-    unsigned char *ptr = *buffer_ptr;
+size_t deserialise_size_t(buffer_t *b) {
+    unsigned char *buf = b->data + b->next;
+    unsigned char *ptr = buf;
     unsigned int length = 0;
 
     // decode the number of bits using unary code
@@ -203,59 +271,57 @@ size_t deserialise_size_t(unsigned char **buffer_ptr) {
         value = (value << 1) | *ptr++;
     }
 
-    *buffer_ptr = ptr;
+    b->next += ptr - buf;
     return value - 1;
 }
 
-unsigned char *serialise_string(unsigned char *buffer, const char *value) {
+void serialise_string(buffer_t *b, const char *value) {
     size_t len = strlen(value) + 1;
-    buffer = serialise_size_t(buffer, len);
-    memcpy(buffer, value, len);
-    return buffer + len;
+    serialise_size_t(b, len);
+    reserve_space(b, len);
+    memcpy(b->data + b->next, value, len);
+    b->next += len;
 }
 
-char *deserialise_string(unsigned char **buffer_ptr) {
-    size_t len = deserialise_size_t(buffer_ptr);
-    char *value = new_string((char *)*buffer_ptr);
-    *buffer_ptr += len;
+char *deserialise_string(buffer_t *b) {
+    size_t len = deserialise_size_t(b);
+    char *value = new_string((char *)(b->data + b->next));
+    b->next += len;
     return value;
 }
 
-unsigned char *serialise_rpc_data(unsigned char *buffer, const rpc_data *data) {
-    buffer = serialise_int(buffer, data->data1);
-    buffer = serialise_size_t(buffer, data->data2_len);
+void serialise_rpc_data(buffer_t *b, const rpc_data *data) {
+    serialise_int(b, data->data1);
+    serialise_size_t(b, data->data2_len);
 
     // optionally serialise data2
     if (data->data2_len > 0 && data->data2 != NULL) {
-        memcpy(buffer, data->data2, data->data2_len);
-        buffer += data->data2_len;
+        reserve_space(b, data->data2_len);
+        memcpy(b->data + b->next, data->data2, data->data2_len);
+        b->next += data->data2_len;
     }
-
-    return buffer;
 }
 
-rpc_data *deserialise_rpc_data(unsigned char **buffer_ptr) {
-    int data1 = deserialise_int(buffer_ptr);
-    size_t data2_len = deserialise_size_t(buffer_ptr);
-    rpc_data *data = new_rpc_data(data1, data2_len, *buffer_ptr);
-    *buffer_ptr += data->data2_len;
+rpc_data *deserialise_rpc_data(buffer_t *b) {
+    int data1 = deserialise_int(b);
+    size_t data2_len = deserialise_size_t(b);
+    rpc_data *data = new_rpc_data(data1, data2_len, b->data + b->next);
+    b->next += data2_len;
     return data;
 }
 
-unsigned char *serialise_rpc_message(unsigned char *buffer,
-                                     const rpc_message *message) {
-    buffer = serialise_int(buffer, message->request_id);
-    buffer = serialise_int(buffer, message->operation);
-    buffer = serialise_string(buffer, message->function_name);
-    buffer = serialise_rpc_data(buffer, message->data);
-    return buffer;
+void serialise_rpc_message(buffer_t *b, const rpc_message *message) {
+    serialise_int(b, message->request_id);
+    serialise_int(b, message->operation);
+    serialise_string(b, message->function_name);
+    serialise_rpc_data(b, message->data);
 }
 
-rpc_message *deserialise_rpc_message(unsigned char **buffer_ptr) {
-    int request_id = deserialise_int(buffer_ptr);
-    int operation = deserialise_int(buffer_ptr);
-    char *function_name = deserialise_string(buffer_ptr);
-    rpc_data *data = deserialise_rpc_data(buffer_ptr);
+rpc_message *deserialise_rpc_message(buffer_t *b) {
+    int request_id = deserialise_int(b);
+    int operation = deserialise_int(b);
+    char *function_name = deserialise_string(b);
+    rpc_data *data = deserialise_rpc_data(b);
     rpc_message *message = new_rpc_message(request_id, operation, function_name, data);
     return message;
 }

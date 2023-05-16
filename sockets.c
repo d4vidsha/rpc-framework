@@ -127,8 +127,8 @@ int is_socket_closed(int sockfd) {
         close(sockfd);
         return 1;
     } else if (n == -1) {
-        debug_print("%s", "Error in recv\n");
-        return 0;
+        perror("recv");
+        return FAILED;
     } else {
         // socket is open
         return 0;
