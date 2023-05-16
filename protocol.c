@@ -14,14 +14,14 @@
 #include "config.h"
 #include <assert.h>
 #include <ctype.h>
+#include <endian.h>
 #include <errno.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <endian.h>
-#include <stdint.h>
 
 buffer_t *new_buffer(size_t size) {
     buffer_t *b = (buffer_t *)malloc(sizeof(*b));

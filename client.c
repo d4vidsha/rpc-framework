@@ -95,8 +95,6 @@ cleanup:
         free(handle_add2);
     }
 
-
-
     rpc_close_client(state);
     state = NULL;
 
