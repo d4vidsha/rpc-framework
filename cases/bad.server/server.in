@@ -1,0 +1,5 @@
+init 6000
+register bad_null bad_null
+register bad_data2_1 bad_data2_1
+register bad_data2_2 bad_data2_2
+serve

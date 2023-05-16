@@ -1,0 +1,7 @@
+init ::1 6000
+find non-exist
+find add2
+call bad_null add2
+call bad_data2_1 add2
+call bad_data2_2 add2
+close

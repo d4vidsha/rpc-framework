@@ -1,0 +1,16 @@
+rpc_init_client: instance 0, addr ::1, port 6000
+rpc_find: instance 0, non-exist
+rpc_find: instance 0, wasn't able to find function non-exist
+rpc_find: instance 0, bad_null
+rpc_find: instance 0, returned handle for function bad_null
+rpc_find: instance 0, bad_data2_1
+rpc_find: instance 0, returned handle for function bad_data2_1
+rpc_find: instance 0, bad_data2_2
+rpc_find: instance 0, returned handle for function bad_data2_2
+rpc_call: instance 0, calling bad_null, with arguments 1 1...
+rpc_call: instance 0, call of bad_null failed
+rpc_call: instance 0, calling bad_data2_1, with arguments 1 1...
+rpc_call: instance 0, call of bad_data2_1 failed
+rpc_call: instance 0, calling bad_data2_2, with arguments 1 1...
+rpc_call: instance 0, call of bad_data2_2 failed
+rpc_close_client: instance 0

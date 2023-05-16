@@ -1,0 +1,9 @@
+rpc_init_client: instance 0, addr ::1, port 6000
+rpc_find: instance 0, non-exist
+rpc_find: instance 0, wasn't able to find function non-exist
+rpc_find: instance 0, add2
+rpc_find: instance 0, returned handle for function add2
+rpc_call: instance 0, incorrect call of add2 failed
+rpc_call: instance 0, incorrect call of add2 failed
+rpc_call: instance 0, incorrect call of add2 failed
+rpc_close_client: instance 0

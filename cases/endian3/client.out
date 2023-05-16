@@ -1,0 +1,6 @@
+rpc_init_client: instance 0, addr ::1, port 1337
+rpc_find: instance 0, add2_2
+rpc_find: instance 0, returned handle for function add2_2
+rpc_call: instance 0, calling add2_2, with arguments 2147483646 1...
+rpc_call: instance 0, call of add2_2 received result 2147483647
+rpc_close_client: instance 0

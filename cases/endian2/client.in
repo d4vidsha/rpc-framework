@@ -1,0 +1,5 @@
+init ::1 1337
+find add2_2
+call add2_2 add2_2
+-127 126
+close

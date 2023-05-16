@@ -1,0 +1,4 @@
+rpc_init_server: instance 0, port 1337
+rpc_register: instance 0, add2_2 (handler) as add2_2
+rpc_serve_all: instance 0
+handler add2_2: arguments -127 and 126

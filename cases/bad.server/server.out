@@ -1,0 +1,8 @@
+rpc_init_server: instance 0, port 6000
+rpc_register: instance 0, bad_null (handler) as bad_null
+rpc_register: instance 0, bad_data2_1 (handler) as bad_data2_1
+rpc_register: instance 0, bad_data2_2 (handler) as bad_data2_2
+rpc_serve_all: instance 0
+handler null: called
+handler bad_data2_v1: called
+handler bad_data2_v2: called
