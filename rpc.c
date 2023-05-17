@@ -382,6 +382,7 @@ rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg) {
     debug_print("%s", "Data returned by handler:\n");
     debug_print_rpc_data(new_data);
     if (new_data == NULL || is_malformed(new_data)) {
+        rpc_data_free(new_data);
         return create_failure_message();
     }
 
@@ -511,6 +512,7 @@ rpc_data *rpc_call(rpc_client *cl, rpc_handle *h, rpc_data *payload) {
         data = reply->data;
     } else if (reply->operation == REPLY_FAILURE) {
         debug_print("%s", "Handler not found\n");
+        rpc_data_free(reply->data);
     } else {
         debug_print("%s", "Invalid reply operation\n");
     }
