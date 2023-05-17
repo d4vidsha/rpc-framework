@@ -1,9 +1,4 @@
-*.o
-*.a
-rpc-server
-rpc-client
-server
-client
-
+build
+bin
 .vscode
 *.code-workspace
