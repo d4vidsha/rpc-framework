@@ -1,4 +1,0 @@
-init 6000
-register echo2 echo2
-register add2 add2
-serve

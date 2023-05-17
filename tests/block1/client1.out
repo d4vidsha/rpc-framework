@@ -1,6 +1,0 @@
-rpc_init_client: instance 0, addr ::1, port 6000
-rpc_find: instance 0, sleep
-rpc_find: instance 0, returned handle for function sleep
-rpc_call: instance 0, calling sleep, with argument 3...
-rpc_call: instance 0, call of sleep received result 3
-rpc_close_client: instance 0

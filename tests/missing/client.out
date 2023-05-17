@@ -1,4 +1,0 @@
-rpc_init_client: instance 0, addr ::1, port 2923
-rpc_find: instance 0, missing
-rpc_find: instance 0, wasn't able to find function missing
-rpc_close_client: instance 0

@@ -1,7 +1,0 @@
-init ::1 6001
-find add2
-find echo2
-call echo2 echo2
-0 3
-abc
-close

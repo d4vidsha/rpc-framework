@@ -1,5 +1,0 @@
-init ::1 6000
-find add2
-call add2 add2
-127 127
-close

@@ -1,6 +1,0 @@
-rpc_init_server: instance 0, port 6000
-rpc_register: instance 0, echo2 (handler) as echo2
-rpc_register: instance 0, add2 (handler) as add2
-rpc_serve_all: instance 0
-handler echo2: data1 0, data2 sha256 55a10ed
-handler add2_i8: arguments 80 and -40

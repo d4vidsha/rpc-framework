@@ -1,8 +1,0 @@
-init ::1 6000
-find sleep
-call sleep sleep
-1
-find add2
-call add2 add2
-1 1
-close
