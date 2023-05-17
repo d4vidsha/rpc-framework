@@ -11,7 +11,7 @@ EXAMPLES_DIR=examples
 SRC=$(wildcard $(SRC_DIR)/*.c)
 OBJ=$(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRC))
 
-RPC_SYSTEM_A=$(BUILD_DIR)/rpc.a
+RPC_SYSTEM_A=rpc.a
 RPC_SERVER=$(BIN_DIR)/rpc-server
 RPC_CLIENT=$(BIN_DIR)/rpc-client
 
@@ -38,4 +38,4 @@ format:
 	clang-format -style=file -i $(SRC_DIR)/*.c $(INCLUDE_DIR)/*.h
 
 clean:
-	rm -rf $(BUILD_DIR) $(BIN_DIR)
+	rm -rf $(BUILD_DIR) $(BIN_DIR) $(RPC_SYSTEM_A)
