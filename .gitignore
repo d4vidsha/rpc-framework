@@ -1,4 +1,5 @@
-rpc.a
+*.o
+*.a
 rpc-server
 rpc-client
 build
