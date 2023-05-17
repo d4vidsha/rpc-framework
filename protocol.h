@@ -10,11 +10,33 @@
 
 #include "rpc.h"
 
+/*
+ * The initial size of a buffer_t when it is created. This is not always
+ * the initial size if the buffer is created using new_buffer().
+ */
 #define INITIAL_BUFFER_SIZE 32
+
+/*
+ * The maximum size of a message in bytes which can be sent/received.
+ * This is useful for specifying size of messages to the client/server
+ * when sending or receiving.
+ * 
+ * Since we use Elias Gamma Coding for encoding the length of size_t values,
+ * if the max byte size is 1 000 000, then the size of the Elias Gamma Code
+ * will be 2 * floor(log2(1 000 000)) + 1 = 39 bits.
+ * 
+ * This is the calculation:
+ *   log2(1 000 000) = 19.9...
+ *   floor(19.9...) = 19
+ *   2 * 19 + 1 = 39
+ */
 #define MAX_MESSAGE_BYTE_SIZE 1000000
 
 /* structures =============================================================== */
 
+/*
+ * A buffer that can be used to read/write bytes to/from a socket.
+ */
 typedef struct {
     void *data;
     size_t next;
