@@ -53,7 +53,7 @@ int write_bytes(int sockfd, unsigned char *buf, size_t size) {
     while (total_bytes_written != size) {
         assert(total_bytes_written < size);
         int bytes_written = write(sockfd, buf + total_bytes_written,
-                                     size - total_bytes_written);
+                                  size - total_bytes_written);
         if (bytes_written < 0) {
             if (errno == EPIPE) {
                 debug_print("%s", "Connection closed by client\n");
@@ -331,7 +331,7 @@ rpc_data *deserialise_rpc_data(buffer_t *b) {
         // no data2
         data2_len = 0;
         data2_ptr = NULL;
-    } 
+    }
     rpc_data *data = new_rpc_data(data1, data2_len, data2_ptr);
     b->next += data2_len;
     return data;
@@ -401,7 +401,8 @@ void rpc_message_free(rpc_message *message, void (*free_data)(rpc_data *)) {
 }
 
 rpc_message *create_failure_message() {
-    return new_rpc_message(0, REPLY_FAILURE, new_string(""), new_rpc_data(0, 0, NULL));
+    return new_rpc_message(0, REPLY_FAILURE, new_string(""),
+                           new_rpc_data(0, 0, NULL));
 }
 
 void debug_print_rpc_data(rpc_data *data) {

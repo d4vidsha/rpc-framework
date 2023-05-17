@@ -116,7 +116,7 @@ rpc_handle *new_rpc_handle(const char *name);
 
 /*
  * Is the RPC handle malformed?
- * 
+ *
  * @param data: RPC data
  * @return 1 if malformed, 0 otherwise.
  */

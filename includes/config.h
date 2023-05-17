@@ -14,7 +14,7 @@
 
 /* #defines ================================================================= */
 
-/* 
+/*
  * Print debug messages by setting this to TRUE.
  */
 #define DEBUG TRUE

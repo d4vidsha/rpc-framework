@@ -20,11 +20,11 @@
  * The maximum size of a message in bytes which can be sent/received.
  * This is useful for specifying size of messages to the client/server
  * when sending or receiving.
- * 
+ *
  * Since we use Elias Gamma Coding for encoding the length of size_t values,
  * if the max byte size is 1 000 000, then the size of the Elias Gamma Code
  * will be 2 * floor(log2(1 000 000)) + 1 = 39 bits.
- * 
+ *
  * This is the calculation:
  *   log2(1 000 000) = 19.9...
  *   floor(19.9...) = 19
@@ -120,7 +120,7 @@ void debug_print_bytes(const unsigned char *buffer, size_t len);
 int send_rpc_message(int sockfd, rpc_message *msg);
 
 /*
- * Receive an rpc_message from a socket. 
+ * Receive an rpc_message from a socket.
  *
  * @param sockfd The socket to receive the message from.
  * @return The message received. NULL if there was an error.
@@ -212,7 +212,7 @@ void serialise_rpc_data(buffer_t *b, const rpc_data *data);
 
 /*
  * Deserialise rpc_data value from buffer. If rpc_data is inconsistent,
- * then we try to give as much information as possible and return a 
+ * then we try to give as much information as possible and return a
  * partially deserialised rpc_data value.
  *
  * @param buffer: buffer to deserialise from
@@ -280,7 +280,7 @@ void rpc_message_free(rpc_message *message, void (*free_data)(rpc_data *));
 /*
  * Create a default failure message so that we can send it to the client.
  * from the server.
- * 
+ *
  * @return The failure message.
  */
 rpc_message *create_failure_message();
