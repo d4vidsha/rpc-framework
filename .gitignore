@@ -1,4 +1,6 @@
 rpc.a
+rpc-server
+rpc-client
 build
 bin
 .vscode
