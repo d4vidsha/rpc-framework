@@ -43,42 +43,44 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    rpc_handle *handle_add2 = rpc_find(state, "add2");
+    rpc_handle *handle_add2 = NULL;
+    rpc_handle *handle_sub2 = NULL;
+    handle_add2 = rpc_find(state, "add2");
     if (handle_add2 == NULL) {
         fprintf(stderr, "ERROR: Function add2 does not exist\n");
         exit_code = 1;
         goto cleanup;
     }
 
-    // for (int i = 0; i < 5; i++) {
-    //     // sleep for half a second
-    //     usleep(500000);
-    //     /* Prepare request */
-    //     char left_operand = i;
-    //     char right_operand = 100;
-    //     rpc_data request_data = {
-    //         .data1 = left_operand, .data2_len = 1, .data2 = &right_operand};
+    for (int i = 0; i < 5; i++) {
+        // sleep for half a second
+        usleep(500000);
+        /* Prepare request */
+        char left_operand = i;
+        char right_operand = 100;
+        rpc_data request_data = {
+            .data1 = left_operand, .data2_len = 1, .data2 = &right_operand};
 
-    //     /* Call and receive response */
-    //     printf("Calling add2 with %d and %d\n", left_operand, right_operand);
-    //     rpc_data *response_data = rpc_call(state, handle_add2, &request_data);
-    //     if (response_data == NULL) {
-    //         fprintf(stderr, "Function call of add2 failed\n");
-    //         exit_code = 1;
-    //         goto cleanup;
-    //     }
+        /* Call and receive response */
+        printf("Calling add2 with %d and %d\n", left_operand, right_operand);
+        rpc_data *response_data = rpc_call(state, handle_add2, &request_data);
+        if (response_data == NULL) {
+            fprintf(stderr, "Function call of add2 failed\n");
+            exit_code = 1;
+            goto cleanup;
+        }
 
-    //     /* Interpret response */
-    //     assert(response_data->data2_len == 0);
-    //     assert(response_data->data2 == NULL);
-    //     printf("Result of adding %d and %d: %d\n", left_operand, right_operand,
-    //            response_data->data1);
-    //     rpc_data_free(response_data);
-    // }
+        /* Interpret response */
+        assert(response_data->data2_len == 0);
+        assert(response_data->data2 == NULL);
+        printf("Result of adding %d and %d: %d\n", left_operand, right_operand,
+               response_data->data1);
+        rpc_data_free(response_data);
+    }
 
     printf("Task 1: Client correctly finds module on server\n");
     printf("Attempting to find a function not registered on the server...\n");
-    rpc_handle *handle_sub2 = rpc_find(state, "sub2");
+    handle_sub2 = rpc_find(state, "sub2");
     if (handle_sub2 != NULL) {
         fprintf(stderr, "Function sub2 exists on server\n");
         exit_code = 1;
@@ -87,10 +89,7 @@ int main(int argc, char *argv[]) {
         printf("✔️ Function sub2 does not exist on server\n");
     }
 
-    // printf("Task 2: Remote procedure is called correctly\n");
-
-
-
+    printf("Task 2: Remote procedure is called correctly\n");
     size_t large_payload_size = 999927;
     if (check_payload_sizes(state, large_payload_size) != 0) {
         printf("❌ Large payload sent incorrectly\n");
