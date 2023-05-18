@@ -17,7 +17,7 @@
 /*
  * Print debug messages by setting this to TRUE.
  */
-#define DEBUG FALSE
+#define DEBUG TRUE
 
 /*
  * Print debug messages.

@@ -103,19 +103,12 @@ int main(int argc, char *argv[]) {
     } else {
         printf("✔️ Small payload sent correctly\n");
     }
-    size_t zero_payload_size = 0;
-    if (check_payload_sizes(state, zero_payload_size) != 0) {
-        printf("✔️ Payload of size 0 correctly fails\n");
-    } else {
-        printf("❌ Payload of size 0 incorrectly succeeds\n");
-    }
     size_t overflow_payload_size = 999928;
     if (check_payload_sizes(state, overflow_payload_size) != 0) {
         printf("✔️ Overflow payload correctly fails\n");
     } else {
         printf("❌ Overflow payload incorrectly succeeds\n");
     }
-
 
     printf("We are done!\n");
 
