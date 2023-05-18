@@ -33,8 +33,8 @@ buffer_t *new_buffer(size_t size) {
 }
 
 void buffer_free(buffer_t *b) {
-    free(b->data);
-    free(b);
+    free_and_null(b->data);
+    free_and_null(b);
 }
 
 void reserve_space(buffer_t *b, size_t size) {
@@ -350,7 +350,7 @@ rpc_message *deserialise_rpc_message(buffer_t *b) {
     rpc_data *data = deserialise_rpc_data(b);
     if (data == NULL) {
         debug_print("%s", "rpc_data provided is malformed\n");
-        free(function_name);
+        free_and_null(function_name);
         return NULL;
     }
     rpc_message *message =
@@ -392,11 +392,11 @@ rpc_message *new_rpc_message(int request_id, int operation, char *function_name,
 }
 
 void rpc_message_free(rpc_message *message, void (*free_data)(rpc_data *)) {
-    free(message->function_name);
+    free_and_null(message->function_name);
     if (free_data) {
         free_data(message->data);
     }
-    free(message);
+    free_and_null(message);
 }
 
 rpc_message *create_failure_message() {

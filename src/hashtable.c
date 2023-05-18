@@ -45,8 +45,8 @@ void hashtable_destroy(hashtable_t *hashtable, void (*free_data)(void *)) {
             hashtable_item_free(prev, free_data);
         }
     }
-    free(hashtable->table);
-    free(hashtable);
+    free_and_null(hashtable->table);
+    free_and_null(hashtable);
 }
 
 void hashtable_insert(hashtable_t *hashtable, char *key, void *data) {
@@ -101,11 +101,12 @@ void hashtable_remove(hashtable_t *hashtable, char *key,
 
 void hashtable_item_free(item_t *item, void (*free_data)(void *)) {
     assert(item);
-    free((char *)item->key);
+    char *key = (char *)item->key;
+    free_and_null(key);
     if (free_data) {
         free_data(item->data);
     }
-    free(item);
+    free_and_null(item);
 }
 
 void hashtable_print(hashtable_t *hashtable, void (*print_data)(void *)) {

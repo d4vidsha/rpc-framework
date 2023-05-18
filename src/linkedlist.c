@@ -42,9 +42,9 @@ void free_list(list_t *list, void (*free_data)(void *data)) {
         if (free_data) {
             free_data(prev->data);
         }
-        free(prev);
+        free_and_null(prev);
     }
-    free(list);
+    free_and_null(list);
 }
 
 list_t *prepend(list_t *list, void *data) {
@@ -118,7 +118,7 @@ void remove_node(list_t *list, node_t *node) {
             node->next->prev = node->prev;
         }
     }
-    free(node);
+    free_and_null(node);
 }
 
 void *remove_data(list_t *list, void *data) {
@@ -157,7 +157,7 @@ void *pop(list_t *list) {
             list->head->prev = NULL;
         }
         void *data = head->data;
-        free(head);
+        free_and_null(head);
         return data;
     }
     return NULL;

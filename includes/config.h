@@ -29,6 +29,17 @@
     } while (0)
 
 /*
+ * Check ptr is not NULL, then free it and set it to NULL.
+ */
+#define free_and_null(ptr)                                                     \
+    do {                                                                       \
+        if (ptr) {                                                             \
+            free(ptr);                                                         \
+            ptr = NULL;                                                        \
+        }                                                                      \
+    } while (0)
+
+/*
  * Basic constants.
  */
 #define TRUE 1

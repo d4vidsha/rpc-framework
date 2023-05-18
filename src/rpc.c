@@ -149,7 +149,7 @@ rpc_server *rpc_init_server(int port) {
     srv->port = port;
     if ((srv->sockfd = create_listening_socket(sport)) == FAILED) {
         debug_print("%s", "create_listening_socket failed\n");
-        free(srv);
+        free_and_null(srv);
         return NULL;
     }
     srv->handlers = hashtable_create(HASHTABLE_SIZE);
@@ -285,7 +285,7 @@ void debug_print_client_info(rpc_client_state *cl) {
 void *handle_all_requests_thread(void *arg) {
     handle_all_requests_args *args = (handle_all_requests_args *)arg;
     handle_all_requests(args->srv, args->cl);
-    free(args);
+    free_and_null(args);
     return NULL;
 }
 
@@ -416,7 +416,7 @@ void rpc_shutdown_server(rpc_server *srv) {
     free_list(srv->threads, free);
 
     // free the server state
-    free(srv);
+    free_and_null(srv);
     srv = NULL;
 }
 
@@ -453,8 +453,8 @@ rpc_client *rpc_init_client(char *addr, int port) {
 
     // create a socket
     if ((cl->sockfd = create_connection_socket(addr, sport)) == FAILED) {
-        free(cl->addr);
-        free(cl);
+        free_and_null(cl->addr);
+        free_and_null(cl);
         return NULL;
     }
 
@@ -534,10 +534,10 @@ void rpc_close_client(rpc_client *cl) {
     close(cl->sockfd);
 
     // free the address
-    free(cl->addr);
+    free_and_null(cl->addr);
 
     // free the client state
-    free(cl);
+    free_and_null(cl);
 }
 
 void rpc_data_free(rpc_data *data) {
@@ -545,9 +545,9 @@ void rpc_data_free(rpc_data *data) {
         return;
     }
     if (data->data2 != NULL) {
-        free(data->data2);
+        free_and_null(data->data2);
     }
-    free(data);
+    free_and_null(data);
 }
 
 /* client helper functions ================================================== */
