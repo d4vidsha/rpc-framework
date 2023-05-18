@@ -220,16 +220,19 @@ cleanup:
 }
 
 rpc_message *request(int sockfd, rpc_message *msg) {
+    rpc_message *result = NULL;
 
     // send message
     if (send_rpc_message(sockfd, msg) == FAILED) {
-        rpc_message_free(msg, NULL);
-        return NULL;
+        goto cleanup;
     }
-    rpc_message_free(msg, NULL);
 
-    // return response
-    return receive_rpc_message(sockfd);
+    // receive response
+    result = receive_rpc_message(sockfd);
+
+cleanup:
+    rpc_message_free(msg, NULL);
+    return result;
 }
 
 void serialise_int(buffer_t *b, int value) {
