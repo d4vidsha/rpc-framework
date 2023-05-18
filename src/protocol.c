@@ -14,7 +14,6 @@
 #include "config.h"
 #include <assert.h>
 #include <ctype.h>
-#include <endian.h>
 #include <errno.h>
 #include <math.h>
 #include <stdint.h>
