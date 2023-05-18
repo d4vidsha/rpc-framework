@@ -137,8 +137,11 @@ int send_rpc_message(int sockfd, rpc_message *msg) {
     buffer_t *size_buf = new_buffer(gamma_size);
     buffer_t *n_buf = new_buffer(gamma_size);
     serialise_size_t(size_buf, size);
+
+    // we will only check once that the message is not too large
     if (size > MAX_MESSAGE_BYTE_SIZE) {
         debug_print("%s", "Message too large\n");
+        fprintf(stderr, "Overlength error\n");
         goto cleanup;
     }
     if (write_bytes(sockfd, size_buf->data, size_buf->size) < 0) {

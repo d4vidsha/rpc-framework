@@ -20,6 +20,7 @@ typedef struct arguments {
 char *read_flag(char *flag, const char *const *valid_args, int argc,
                 char *argv[]);
 args_t *parse_args(int argc, char *argv[]);
+int check_payload_sizes(rpc_client *state, size_t size);
 
 int main(int argc, char *argv[]) {
 
@@ -83,35 +84,37 @@ int main(int argc, char *argv[]) {
         exit_code = 1;
         goto cleanup;
     } else {
-        printf("✅ Function sub2 does not exist on server\n");
+        printf("✔️ Function sub2 does not exist on server\n");
     }
 
     // printf("Task 2: Remote procedure is called correctly\n");
 
 
 
-    printf("Check a large payload is sent correctly\n");
     size_t large_payload_size = 999927;
-    char *large_payload = malloc(large_payload_size);
-    memset(large_payload, 0, large_payload_size);
-    for (int i = 0; i < large_payload_size; i++) {
-        large_payload[i] = i % 257;
+    if (check_payload_sizes(state, large_payload_size) != 0) {
+        printf("❌ Large payload sent incorrectly\n");
+    } else {
+        printf("✔️ Large payload sent correctly\n");
     }
-    rpc_data request_data = {
-        .data1 = 0, .data2_len = large_payload_size, .data2 = large_payload};
-    rpc_handle *handle_echo = rpc_find(state, "echo");
-    rpc_data *response_data = rpc_call(state, handle_echo, &request_data);
-    if (response_data == NULL) {
-        fprintf(stderr, "Function call of echo failed\n");
-        exit_code = 1;
-        goto cleanup;
+    size_t small_payload_size = 1;
+    if (check_payload_sizes(state, small_payload_size) != 0) {
+        printf("❌ Small payload sent incorrectly\n");
+    } else {
+        printf("✔️ Small payload sent correctly\n");
     }
-    assert(response_data->data2_len == large_payload_size);
-    assert(response_data->data2 != NULL);
-    assert(memcmp(response_data->data2, large_payload, large_payload_size) ==
-           0);
-    rpc_data_free(response_data);
-    printf("✅ Large payload sent and received correctly\n");
+    size_t zero_payload_size = 0;
+    if (check_payload_sizes(state, zero_payload_size) != 0) {
+        printf("✔️ Payload of size 0 correctly fails\n");
+    } else {
+        printf("❌ Payload of size 0 incorrectly succeeds\n");
+    }
+    size_t overflow_payload_size = 999928;
+    if (check_payload_sizes(state, overflow_payload_size) != 0) {
+        printf("✔️ Overflow payload correctly fails\n");
+    } else {
+        printf("❌ Overflow payload incorrectly succeeds\n");
+    }
 
 
     printf("We are done!\n");
@@ -123,14 +126,40 @@ cleanup:
     if (handle_sub2 != NULL) {
         free(handle_sub2);
     }
-    if (handle_echo != NULL) {
-        free(handle_echo);
-    }
-    free(large_payload);
 
     rpc_close_client(state);
     state = NULL;
 
+    return exit_code;
+}
+
+int check_payload_sizes(rpc_client *state, size_t size) {
+    int exit_code = 0;
+    char *payload = malloc(size);
+    memset(payload, 0, size);
+    for (int i = 0; i < size; i++) {
+        payload[i] = i % 257;
+    }
+    rpc_data request_data = {
+        .data1 = 0, .data2_len = size, .data2 = payload};
+    rpc_handle *handle_echo = rpc_find(state, "echo");
+    rpc_data *response_data = rpc_call(state, handle_echo, &request_data);
+    if (response_data == NULL) {
+        fprintf(stderr, "Function call of echo failed\n");
+        exit_code = 1;
+        goto cleanup;
+    }
+    assert(response_data->data2_len == size);
+    assert(response_data->data2 != NULL);
+    assert(memcmp(response_data->data2, payload, size) == 0);
+cleanup:
+    if (handle_echo != NULL) {
+        free(handle_echo);
+    }
+    if (response_data != NULL) {
+        rpc_data_free(response_data);
+    }
+    free(payload);
     return exit_code;
 }
 

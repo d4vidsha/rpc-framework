@@ -17,7 +17,7 @@
 /*
  * Print debug messages by setting this to TRUE.
  */
-#define DEBUG TRUE
+#define DEBUG FALSE
 
 /*
  * Print debug messages.
@@ -54,7 +54,7 @@
 /*
  * Maximum length of a function name.
  */
-#define MAX_NAME_LENGTH 1000
+#define MAX_NAME_LENGTH 1100
 
 /*
  * Size of the hashtable. The larger this is, the less likely there will be
