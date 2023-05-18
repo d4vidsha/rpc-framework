@@ -6,18 +6,16 @@
    Author: David Sha
 ============================================================================= */
 #define _POSIX_C_SOURCE 200112L
-#include "sockets.h"
 #include "config.h"
 #include <netdb.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/select.h>
 #include <unistd.h>
 
 int create_listening_socket(char *port) {
-    int re, s, sockfd;
-    struct addrinfo hints, *res;
+    int re, s, sockfd = FAILED;
+    struct addrinfo hints, *res = NULL;
 
     // create address we're going to listen on (with given port number)
     memset(&hints, 0, sizeof hints);
@@ -27,37 +25,40 @@ int create_listening_socket(char *port) {
 
     // get address info with above parameters
     if ((s = getaddrinfo(NULL, port, &hints, &res)) != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
-        return FAILED;
+        debug_print("getaddrinfo: %s\n", gai_strerror(s));
+        goto cleanup;
     }
 
     // create socket
     sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     if (sockfd < 0) {
         debug_print("%s", "Error creating socket\n");
-        return FAILED;
+        goto cleanup;
     }
 
     // set socket to be reusable
     re = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &re, sizeof re) < 0) {
         debug_print("%s", "Error setting socket options\n");
-        return FAILED;
+        goto cleanup;
     }
 
     // bind address to socket
     if (bind(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
         debug_print("%s", "Error binding socket\n");
-        return FAILED;
+        goto cleanup;
     }
 
-    freeaddrinfo(res);
+cleanup:
+    if (res) {
+        freeaddrinfo(res);
+    }
     return sockfd;
 }
 
 int create_connection_socket(char *addr, char *port) {
     int s, sockfd = FAILED;
-    struct addrinfo hints, *servinfo, *rp;
+    struct addrinfo hints, *servinfo = NULL, *rp = NULL;
 
     // create address we're going to connect to
     memset(&hints, 0, sizeof hints);
@@ -67,7 +68,7 @@ int create_connection_socket(char *addr, char *port) {
     // get address info for addr
     if ((s = getaddrinfo(addr, port, &hints, &servinfo)) != 0) {
         debug_print("getaddrinfo: %s\n", gai_strerror(s));
-        return FAILED;
+        goto cleanup;
     }
 
     // connect to remote host
@@ -76,26 +77,27 @@ int create_connection_socket(char *addr, char *port) {
         if (sockfd == FAILED) {
             continue;
         }
-
         if (connect(sockfd, rp->ai_addr, rp->ai_addrlen) != FAILED) {
             break;
         }
-
         close(sockfd);
     }
 
     if (rp == NULL) {
         debug_print("%s", "Could not connect to server\n");
-        sockfd = FAILED;
+        goto cleanup;
     }
 
-    freeaddrinfo(servinfo);
+cleanup:
+    if (servinfo) {
+        freeaddrinfo(servinfo);
+    }
     return sockfd;
 }
 
 int non_blocking_accept(int sockfd, struct sockaddr_in *client_addr,
                         socklen_t *client_addr_size) {
-    int new_sockfd;
+    int new_sockfd = FAILED;
     fd_set readfds;
     FD_ZERO(&readfds);
     FD_SET(sockfd, &readfds);
@@ -103,20 +105,18 @@ int non_blocking_accept(int sockfd, struct sockaddr_in *client_addr,
     int retval = select(sockfd + 1, &readfds, NULL, NULL, &tv);
     if (retval == FAILED) {
         debug_print("%s", "Error in select\n");
-        return FAILED;
     } else if (retval) {
         // connection request received
         new_sockfd =
             accept(sockfd, (struct sockaddr *)client_addr, client_addr_size);
         if (new_sockfd < 0) {
             debug_print("%s", "Error accepting connection\n");
-            return FAILED;
+            new_sockfd = FAILED;
         }
-        return new_sockfd;
     } else {
         // no connection requests received
-        return FAILED;
     }
+    return new_sockfd;
 }
 
 int is_socket_closed(int sockfd) {
@@ -125,12 +125,12 @@ int is_socket_closed(int sockfd) {
     if (n == 0) {
         // socket is closed
         close(sockfd);
-        return 1;
+        return TRUE;
     } else if (n == -1) {
         perror("recv");
         return FAILED;
     } else {
         // socket is open
-        return 0;
+        return FALSE;
     }
 }
