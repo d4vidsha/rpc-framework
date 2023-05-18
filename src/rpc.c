@@ -565,8 +565,5 @@ int is_malformed(rpc_data *data) {
     if (data->data2 == NULL && data->data2_len != 0) {
         return TRUE;
     }
-    if (data->data2 != NULL && data->data2_len == 0) {
-        return TRUE;
-    }
     return FALSE;
 }
