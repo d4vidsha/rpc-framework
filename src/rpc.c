@@ -381,7 +381,7 @@ rpc_message *handle_call_request(rpc_server *srv, rpc_message *msg) {
     // is data malformed
     debug_print("%s", "Data returned by handler:\n");
     debug_print_rpc_data(new_data);
-    if (new_data == NULL || is_malformed(new_data)) {
+    if (is_malformed(new_data)) {
         rpc_data_free(new_data);
         return create_failure_message();
     }
