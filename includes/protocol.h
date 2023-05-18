@@ -32,6 +32,13 @@
  */
 #define MAX_MESSAGE_BYTE_SIZE 1000000
 
+/*
+ * Maximum bytes print size.
+ */
+#define MAX_PRINT_HEIGHT 7
+#define MAX_PRINT_WIDTH 16
+#define MAX_PRINT_BYTE_SIZE (MAX_PRINT_HEIGHT * MAX_PRINT_WIDTH)
+
 /* structures =============================================================== */
 
 /*

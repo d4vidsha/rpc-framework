@@ -20,6 +20,7 @@ char *read_flag(char *flag, const char *const *valid_args, int argc,
 args_t *parse_args(int argc, char *argv[]);
 rpc_data *add2_i8(rpc_data *);
 rpc_data *sub2_i8(rpc_data *);
+rpc_data *echo(rpc_data *);
 
 int main(int argc, char *argv[]) {
     args_t *args = parse_args(argc, argv);
@@ -50,6 +51,16 @@ int main(int argc, char *argv[]) {
     } else {
         printf("✅ successfully overrides\n");
     }
+
+
+    // register echo
+    if (rpc_register(state, "echo", echo) == -1) {
+        printf("❌ failed\n");
+    } else {
+        printf("✅ is initialised\n");
+    }
+
+
 
     printf("\nrpc_serve_all: %p\n", rpc_serve_all);
 
@@ -119,6 +130,18 @@ rpc_data *sub2_i8(rpc_data *in) {
     out->data1 = res;
     out->data2_len = 0;
     out->data2 = NULL;
+    return out;
+}
+
+rpc_data *echo(rpc_data *in) {
+    // echo the data
+    rpc_data *out = malloc(sizeof(rpc_data));
+    assert(out != NULL);
+    out->data1 = in->data1;
+    out->data2_len = in->data2_len;
+    out->data2 = malloc(in->data2_len);
+    assert(out->data2 != NULL);
+    memcpy(out->data2, in->data2, in->data2_len);
     return out;
 }
 

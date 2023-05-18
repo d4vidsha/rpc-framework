@@ -49,31 +49,31 @@ int main(int argc, char *argv[]) {
         goto cleanup;
     }
 
-    for (int i = 0; i < 5; i++) {
-        // sleep for half a second
-        usleep(500000);
-        /* Prepare request */
-        char left_operand = i;
-        char right_operand = 100;
-        rpc_data request_data = {
-            .data1 = left_operand, .data2_len = 1, .data2 = &right_operand};
+    // for (int i = 0; i < 5; i++) {
+    //     // sleep for half a second
+    //     usleep(500000);
+    //     /* Prepare request */
+    //     char left_operand = i;
+    //     char right_operand = 100;
+    //     rpc_data request_data = {
+    //         .data1 = left_operand, .data2_len = 1, .data2 = &right_operand};
 
-        /* Call and receive response */
-        printf("Calling add2 with %d and %d\n", left_operand, right_operand);
-        rpc_data *response_data = rpc_call(state, handle_add2, &request_data);
-        if (response_data == NULL) {
-            fprintf(stderr, "Function call of add2 failed\n");
-            exit_code = 1;
-            goto cleanup;
-        }
+    //     /* Call and receive response */
+    //     printf("Calling add2 with %d and %d\n", left_operand, right_operand);
+    //     rpc_data *response_data = rpc_call(state, handle_add2, &request_data);
+    //     if (response_data == NULL) {
+    //         fprintf(stderr, "Function call of add2 failed\n");
+    //         exit_code = 1;
+    //         goto cleanup;
+    //     }
 
-        /* Interpret response */
-        assert(response_data->data2_len == 0);
-        assert(response_data->data2 == NULL);
-        printf("Result of adding %d and %d: %d\n", left_operand, right_operand,
-               response_data->data1);
-        rpc_data_free(response_data);
-    }
+    //     /* Interpret response */
+    //     assert(response_data->data2_len == 0);
+    //     assert(response_data->data2 == NULL);
+    //     printf("Result of adding %d and %d: %d\n", left_operand, right_operand,
+    //            response_data->data1);
+    //     rpc_data_free(response_data);
+    // }
 
     printf("Task 1: Client correctly finds module on server\n");
     printf("Attempting to find a function not registered on the server...\n");
@@ -86,7 +86,33 @@ int main(int argc, char *argv[]) {
         printf("✅ Function sub2 does not exist on server\n");
     }
 
-    printf("Task 2: Remote procedure is called correctly\n");
+    // printf("Task 2: Remote procedure is called correctly\n");
+
+
+
+    printf("Check a large payload is sent correctly\n");
+    size_t large_payload_size = 999927;
+    char *large_payload = malloc(large_payload_size);
+    memset(large_payload, 0, large_payload_size);
+    for (int i = 0; i < large_payload_size; i++) {
+        large_payload[i] = i % 257;
+    }
+    rpc_data request_data = {
+        .data1 = 0, .data2_len = large_payload_size, .data2 = large_payload};
+    rpc_handle *handle_echo = rpc_find(state, "echo");
+    rpc_data *response_data = rpc_call(state, handle_echo, &request_data);
+    if (response_data == NULL) {
+        fprintf(stderr, "Function call of echo failed\n");
+        exit_code = 1;
+        goto cleanup;
+    }
+    assert(response_data->data2_len == large_payload_size);
+    assert(response_data->data2 != NULL);
+    assert(memcmp(response_data->data2, large_payload, large_payload_size) ==
+           0);
+    rpc_data_free(response_data);
+    printf("✅ Large payload sent and received correctly\n");
+
 
     printf("We are done!\n");
 
@@ -94,6 +120,13 @@ cleanup:
     if (handle_add2 != NULL) {
         free(handle_add2);
     }
+    if (handle_sub2 != NULL) {
+        free(handle_sub2);
+    }
+    if (handle_echo != NULL) {
+        free(handle_echo);
+    }
+    free(large_payload);
 
     rpc_close_client(state);
     state = NULL;

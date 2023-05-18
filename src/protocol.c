@@ -97,18 +97,23 @@ int read_bytes(int sockfd, unsigned char *buf, size_t size) {
 }
 
 void debug_print_bytes(const unsigned char *buf, size_t len) {
+    size_t max_printable_len = MAX_PRINT_BYTE_SIZE, printable_len = len;
+    if (len > max_printable_len) {
+        printable_len = max_printable_len;
+        debug_print("Printing first %ld bytes\n", printable_len);
+    }
     debug_print("Serialised message (%ld bytes):\n", len);
-    int box_size = 16;
-    for (int i = 0; i < len; i += box_size) {
+    int box_size = MAX_PRINT_WIDTH;
+    for (int i = 0; i < printable_len; i += box_size) {
         for (int j = 0; j < box_size; j++) {
-            if (i + j < len)
+            if (i + j < printable_len)
                 debug_print("%02X ", buf[i + j]);
             else
                 debug_print("%s", "   ");
         }
         debug_print("%s", "  ");
         for (int j = 0; j < box_size; j++) {
-            if (i + j < len) {
+            if (i + j < printable_len) {
                 if (isprint(buf[i + j]))
                     debug_print("%c", buf[i + j]);
                 else
@@ -132,6 +137,10 @@ int send_rpc_message(int sockfd, rpc_message *msg) {
     buffer_t *size_buf = new_buffer(gamma_size);
     buffer_t *n_buf = new_buffer(gamma_size);
     serialise_size_t(size_buf, size);
+    if (size > MAX_MESSAGE_BYTE_SIZE) {
+        debug_print("%s", "Message too large\n");
+        goto cleanup;
+    }
     if (write_bytes(sockfd, size_buf->data, size_buf->size) < 0) {
         goto cleanup;
     }
@@ -405,18 +414,23 @@ rpc_message *create_failure_message() {
 }
 
 void debug_print_rpc_data(rpc_data *data) {
+    int max_print_size = 10;
     if (data == NULL) {
         debug_print("%s", "rpc_data is NULL\n");
         return;
     }
     debug_print(" |- data1: %d\n", data->data1);
     debug_print(" |- data2_len: %zu\n", data->data2_len);
-    debug_print("%s", " |- data2: ");
+    debug_print(" |- data2 (first %d): ", max_print_size);
     if (data->data2 == NULL) {
         debug_print("%s", "NULL\n");
         return;
     }
-    for (size_t i = 0; i < data->data2_len; i++) {
+    int print_size = data->data2_len;
+    if (print_size > max_print_size) {
+        print_size = max_print_size;
+    }
+    for (size_t i = 0; i < print_size; i++) {
         debug_print("%02x ", ((unsigned char *)data->data2)[i]);
     }
     debug_print("%s", "\n");
