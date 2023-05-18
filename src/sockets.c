@@ -126,7 +126,7 @@ int is_socket_closed(int sockfd) {
         // socket is closed
         close(sockfd);
         return TRUE;
-    } else if (n == -1) {
+    } else if (n == FAILED) {
         perror("recv");
         return FAILED;
     } else {

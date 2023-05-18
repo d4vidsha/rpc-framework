@@ -257,7 +257,7 @@ void debug_print_client_info(rpc_client_state *cl) {
     socklen_t addr_len = sizeof(addr);
     char ip_str[INET6_ADDRSTRLEN];
 
-    if (getpeername(cl->sockfd, (struct sockaddr *)&addr, &addr_len) == -1) {
+    if (getpeername(cl->sockfd, (struct sockaddr *)&addr, &addr_len) == FAILED) {
         debug_print("%s", "getpeername failed\n");
         return;
     }
