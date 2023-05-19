@@ -72,7 +72,9 @@ Protocol steps:
 
 The `rpc_message` struct will contain the following fields:
       `int request_id`: The ID of the request. Useful for matching 
-                        requests to responses.
+                        requests to responses. The current implementation
+                        does not use this but including this may be useful
+                        for future extendibility.
              `enum op`: The operation can be either FIND, CALL, 
                         REPLY_SUCCESS or REPLY_FAILURE.
  `char *function_name`: The name of the function to be called 
