@@ -71,7 +71,7 @@ Protocol steps:
 4. Client receives `rpc_message`.
 
 The `rpc_message` struct will contain the following fields:
-       int request_id`: The ID of the request. Useful for matching 
+      `int request_id`: The ID of the request. Useful for matching 
                         requests to responses.
              `enum op`: The operation can be either FIND, CALL, 
                         REPLY_SUCCESS or REPLY_FAILURE.
