@@ -71,14 +71,14 @@ Protocol steps:
 4. Client receives `rpc_message`.
 
 The `rpc_message` struct will contain the following fields:
-- `int request_id`:      The ID of the request. Useful for matching 
-                         requests to responses.
-- `enum op`:             The operation can be either FIND, CALL, 
-                         REPLY_SUCCESS or REPLY_FAILURE.
-- `char *function_name`: The name of the function to be called 
-                         or returned.
-- `rpc_data *data`:      The data to be passed to the function or returned 
-                         by the function.
+       int request_id`: The ID of the request. Useful for matching 
+                        requests to responses.
+             `enum op`: The operation can be either FIND, CALL, 
+                        REPLY_SUCCESS or REPLY_FAILURE.
+ `char *function_name`: The name of the function to be called 
+                        or returned.
+      `rpc_data *data`: The data to be passed to the function or returned 
+                        by the function.
 
 This `rpc_message` struct will be serialised into a byte array and sent 
 over the network. When serialising, we will need to ensure that there 
