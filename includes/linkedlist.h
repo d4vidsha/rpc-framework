@@ -32,16 +32,16 @@ typedef struct list {
 
 /* function prototypes ====================================================== */
 
-/* 
+/*
  * Creates an empty linked list.
- * 
+ *
  * @return a pointer to the linked list
  */
 list_t *create_empty_list();
 
 /*
  * Create a linked list given the head and foot.
- * 
+ *
  * @param head: the head of the linked list
  * @param foot: the foot of the linked list
  * @return a pointer to the linked list
@@ -59,7 +59,7 @@ int is_empty_list(list_t *list);
  * Free the list by freeing all nodes and its contents.
  * Give a function pointer to free the data. If no function
  * pointer is given, the data will not be freed.
- * 
+ *
  * @param list: the linked list
  * @param free_data: function pointer to free the data
  */
@@ -75,7 +75,7 @@ list_t *prepend(list_t *list, void *data);
 
 /*
  * Append to the list i.e. add to foot of linked list.
- * 
+ *
  * @param list: the linked list
  * @param data: the data to be added
  */
@@ -83,7 +83,7 @@ list_t *append(list_t *list, void *data);
 
 /*
  * Get the length of the linked list.
- * 
+ *
  * @param list: the linked list
  */
 int list_len(list_t *list);
@@ -99,7 +99,7 @@ void remove_node(list_t *list, node_t *node);
 /*
  * Remove data from the linked list. If data is not found,
  * return NULL.
- * 
+ *
  * @param list: the linked list
  * @param data: the data to be removed
  */
@@ -149,7 +149,7 @@ list_t *insert_next(list_t *list, node_t *node, void *data);
 
 /*
  * Find data in the list. If data is not in the list, return NULL.
- * 
+ *
  * @param list: the linked list
  * @param data: the data to be found
  * @param cmp: function pointer to compare the data
@@ -159,7 +159,7 @@ void *find_node(list_t *list, void *data, int (*cmp)(void *, void *));
 
 /*
  * Compare two addresses.
- * 
+ *
  * @param a: the first address
  * @param b: the second address
  * @return 0 if a == b, 1 otherwise
