@@ -55,7 +55,7 @@ int write_bytes(int sockfd, unsigned char *buf, size_t size) {
                                   size - total_bytes_written);
         if (bytes_written < 0) {
             if (errno == EPIPE) {
-                debug_print("%s", "Connection closed by client\n");
+                debug_print("%s", "Connection closed\n");
             } else {
                 debug_print("%s", "Error writing to socket\n");
             }
@@ -83,7 +83,7 @@ int read_bytes(int sockfd, unsigned char *buf, size_t size) {
             close(sockfd);
             return FAILED;
         } else if (bytes_read == 0) {
-            debug_print("%s", "Connection closed by client\n");
+            debug_print("%s", "Connection closed\n");
             close(sockfd);
             return FAILED;
         } else {
