@@ -166,7 +166,8 @@ int rpc_register(rpc_server *srv, char *name, rpc_handler handler) {
     }
 
     // length of name must be between 1 and MAX_NAME_LENGTH inclusive
-    if (strlen(name) > MAX_NAME_LENGTH || strlen(name) < 1) {
+    size_t len = strlen(name);
+    if (len > MAX_NAME_LENGTH || len == 0) {
         return FAILED;
     }
 
