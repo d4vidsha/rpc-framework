@@ -14,6 +14,6 @@ In this project, we will implement a remote procedure call (RPC) system using a 
 
 ## Roadmap
 
-- [ ] Mandle malloc errors without `assert()`, which exits the program.
+- [ ] Handle memory allocation errors without `assert()`, which will currently exit the program.
 - [ ] Limit concurrent connections to the server by using a queue. Currently, all open and closed connections (the `sockfd`s) are stored in a linked list.
 - [ ] Use integer inside `rpc_handle` as opposed to a fixed-length array of characters.
