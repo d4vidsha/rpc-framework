@@ -8,16 +8,15 @@ Student ID: 1273615
 ================================================================================
 1. Should the server accept calls from everyone, or just a subset of users?
 --------------------------------------------------------------------------------
-It depends on the use case. If the server is used for a public service, such 
-as an ecommerce website, then it should accept calls from everyone. If the 
-service is private, such as in the case of assessing this project, then it 
-should only expect to receive calls from a limited number of clients.
+It depends on the use case. Server should accept calls from everyone on a
+public service like Wikipedia. In the case of this project, server should
+only accept calls from select users who know how to use the RPC framework.
 
 ================================================================================
 2. Should authentication etc. be provided by the RPC framework, or by the 
 functions that use the RPC framework?
 --------------------------------------------------------------------------------
-The RPC framework should handle the authentication so that a standardised 
+RPC framework should handle some authentication so that a standardised 
 authentication process can be used across all functions that use the 
 framework. If additional authentication is required, then the functions 
 that use the RPC framework can implement their own authentication processes.
@@ -29,8 +28,7 @@ TCP should be used over UDP. For the RPC framework, it is critical that
 packets are received in the correct order, and that no packets are lost. 
 TCP provides this functionality. The trade-off for using TCP is that it 
 is slower than UDP, as it requires a three-way handshake to establish a 
-connection, and it also requires the server to keep track of the state of 
-each connection. This is a worthwhile trade-off however.
+connection. This is a worthwhile trade-off.
 
 ================================================================================
 4. In which function(s) should the socket(s) be created?
@@ -42,16 +40,15 @@ functions. Sockets should be created before any RPC calls are made.
 5. Should `rpc_client` and `rpc_server` be allocated dynamically or 
 statically? What are the implications for the client and server code?
 --------------------------------------------------------------------------------
-`rpc_client` and `rpc_server` should be allocated dynamically. If they 
-were allocated statically, only one client and one server could be created, 
-limiting the functionality of the RPC framework.
+`rpc_client` and `rpc_server` should be allocated dynamically. Without being
+dynamic, the client and server code will need to manage the memory themselves,
+which is poor encapsulation on the RPC framework's part.
 
 ================================================================================
 6. What happens if one host uses big-endian byte order and the other uses 
 little-endian? How does that relate to "network byte order"?
 --------------------------------------------------------------------------------
-If one host uses big-endian and the other uses little-endian, then the data 
-will be interpreted incorrectly. Network byte order is big-endian, so the 
+The data will be interpreted incorrectly. Network byte order is big-endian, so 
 data should be converted to big-endian before being sent over the network.
 --------------------------------------------------------------------------------
 
@@ -100,10 +97,7 @@ It is worth noting that `op` is similar to status codes in HTTP. If the
 operation is REPLY_FAILURE, it will signal that something went wrong when
 processing a request which then can be handled accordingly by the client.
 
-Elias Gamma Coding should be used to serialise `size_t` types. This is
-because `size_t` varies in byte size across different machines, meaning
-that serialising directly by `memcpy()` will not work. Elias Gamma Coding
-is a universal way of serialising `size_t` and any other unsigned integer
-types. Since we plan on extending this RPC framework in the future, we will
-opt for Elias Gamma Coding as it is a more extendible solution.
+Elias Gamma Coding will be used to serialise `size_t` types, since we 
+plan on extending this RPC framework in the future to support other
+integer types.
 --------------------------------------------------------------------------------
