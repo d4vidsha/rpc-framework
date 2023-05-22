@@ -64,6 +64,15 @@ Design and document a simple application layer protocol for this RPC system.
 We will use a single `rpc_message` struct to represent both requests 
 and responses.
 
+When sending an `rpc_message` across the network, we will use TCP due to
+its reliability, albeit at the cost of speed (a feature of UDP). Reliability
+ensures that IP layer packet loss and duplication is handled by the transport
+layer, and that packets are received in the correct order.
+
+Since IP packets have a maximum allowed size, our implementation will need
+to handle multiple reads from a socket provided we know an expected size of 
+the `rpc_message` struct.
+
 Protocol steps:
 1. Client sends `rpc_message` to server.
 2. Server receives `rpc_message`.
@@ -73,8 +82,9 @@ Protocol steps:
 The `rpc_message` struct will contain the following fields:
       `int request_id`: The ID of the request. Useful for matching 
                         requests to responses. The current implementation
-                        does not use this but including this may be useful
-                        for future extendibility.
+                        does not use this but instead sets values to 0 by
+                        default. Including this may be useful for future
+                        extendibility.
              `enum op`: The operation can be either FIND, CALL, 
                         REPLY_SUCCESS or REPLY_FAILURE.
  `char *function_name`: The name of the function to be called 
@@ -84,5 +94,16 @@ The `rpc_message` struct will contain the following fields:
 
 This `rpc_message` struct will be serialised into a byte array and sent 
 over the network. When serialising, we will need to ensure that there 
-are no padding or endianness.
+are no padding or endianness issues.
+
+It is worth noting that `op` is similar to status codes in HTTP. If the
+operation is REPLY_FAILURE, it will signal that something went wrong when
+processing a request which then can be handled accordingly by the client.
+
+Elias Gamma Coding should be used to serialise `size_t` types. This is
+because `size_t` varies in byte size across different machines, meaning
+that serialising directly by `memcpy()` will not work. Elias Gamma Coding
+is a universal way of serialising `size_t` and any other unsigned integer
+types. Since we plan on extending this RPC framework in the future, we will
+opt for Elias Gamma Coding as it is a more extendible solution.
 --------------------------------------------------------------------------------
