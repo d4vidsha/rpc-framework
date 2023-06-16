@@ -1,4 +1,0 @@
-image: registry.comp30023/p2:latest
-test:
-  script:
-    - /test.sh
