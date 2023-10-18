@@ -6,6 +6,56 @@ In this project, we will implement a remote procedure call (RPC) system using a 
 
 `client.c` and `server.c` are the client and server programs which use the RPC system. The full API of the RPC system is defined in `rpc.h`, while the RPC system is implemented in `rpc.c`.
 
+### Quick Start
+
+```bash
+# compile the client and server programs
+make
+
+# run the server program on port 8080
+./rpc-server -p 8080
+
+# in another terminal, run the client program on ipv6 loopback address ::1 on port 8080
+./rpc-client -i ::1 -p 8080
+```
+
+```bash
+# clean up the compiled files
+make clean
+
+# format the source code
+make format
+```
+
+### Usage
+
+#### Server
+
+```bash
+./rpc-server [-p port]
+```
+
+The server program will listen for incoming connections on the specified port. If no port is specified, then the server will listen on port 3000.
+
+#### Client
+
+```bash
+./rpc-client [-i ip_address] [-p port]
+```
+
+The client program will connect to the specified IP address and port. If no IP address is specified, then the client will connect to the ipv6 loopback address `::1`. If no port is specified, then the client will connect to port 3000.
+
+### Development
+
+If you want to debug the RPC system, then `#define DEBUG TRUE` in `config.h`. This will print out debug messages to `stdout`.
+
+Ensure you are using Valgrind frequently to check for memory leaks:
+
+```bash
+valgrind --leak-check=full --show-leak-kinds=all ./rpc-server -p 8080
+valgrind --leak-check=full --show-leak-kinds=all ./rpc-client -i ::1 -p 8080
+```
+
 ## About the RPC System
 
 ### Protocol Design
