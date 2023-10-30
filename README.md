@@ -86,9 +86,3 @@ This `rpc_message` struct will be serialised into a byte array and sent over the
 - A hash table is used to store the function pointers in the server program.
 - A protocol with a request and response message structure is used to communicate between the client and server programs. The serialisation and deserialisation of the messages are done through functions in `protocol.c`.
 - Elias Gamma Coding is used for the serialisation and deserialisation of `size_t` data types.
-
-## Roadmap
-
-- [ ] Handle memory allocation errors without `assert()`, which will currently exit the program.
-- [ ] Limit concurrent connections to the server by using a queue. Currently, all open and closed connections (the `sockfd`s) are stored in a linked list.
-- [ ] Use integer inside `rpc_handle` as opposed to a fixed-length array of characters.
